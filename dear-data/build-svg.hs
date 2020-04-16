@@ -30,11 +30,11 @@ instance ToElement Record where
           [Transform_ <<- (translate 0 $ (*) factor $ logBase 10 weight)]
           $ circle_
             [ Cx_ <<- showF (5 + dotlvl * dotSize),
-              Cy_ <<- showF (- fontSize / 2),
               R_ <<- showF (dotSize / 2)
             ]
             <> ( text_
                    [ X_ <<- showF (textlvl + 13),
+                     Y_ <<- showF (fontSize / 2),
                      Font_size_ <<- showF fontSize
                    ]
                    $ (toElement name)
@@ -120,17 +120,17 @@ scale (val, label) =
 
 formatWeight :: Float -> Text
 formatWeight weight
-  | weight <= 0.1 =
+  | weight < 0.1 =
     printfText "~%dmg" (round $ weight * 1000 :: Int)
-  | weight <= 1 =
+  | weight < 1 =
     printfText "%dmg" (round $ weight * 1000 :: Int)
-  | weight <= 10 =
+  | weight < 10 =
     printfText "%.2fg" weight
-  | weight <= 100 =
+  | weight < 100 =
     printfText "%.1fg" weight
-  | weight <= 1000 =
+  | weight < 1000 =
     printfText "%dg" (round weight :: Int)
-  | weight > 1000 =
+  | weight >= 1000 =
     printfText "%.2fkg" (weight / 1000)
   | otherwise =
     printfText "%.2fg" weight
