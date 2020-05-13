@@ -10,6 +10,7 @@ pkgs.mkShell {
       numpy
       altair
       SPARQLWrapper
+      matplotlib
     ]
   );
 }
