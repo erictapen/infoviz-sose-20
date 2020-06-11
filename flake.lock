@@ -1,0 +1,26 @@
+{
+  "nodes": {
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1591738051,
+        "narHash": "sha256-+bHhJTxbj5aYRiqWeUtbxu2vuJu4THOAdajsWSXUUlI=",
+        "ref": "custom-20.03",
+        "rev": "93a65bd210d94b736e27a027c97aa053948178d3",
+        "revCount": 215015,
+        "type": "git",
+        "url": "file:///home/justin/nixpkgs"
+      },
+      "original": {
+        "id": "nixpkgs",
+        "type": "indirect"
+      }
+    },
+    "root": {
+      "inputs": {
+        "nixpkgs": "nixpkgs"
+      }
+    }
+  },
+  "root": "root",
+  "version": 6
+}
