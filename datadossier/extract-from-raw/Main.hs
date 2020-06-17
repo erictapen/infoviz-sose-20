@@ -46,21 +46,22 @@ getVehicles :: FilePath -> IO [Vehicle]
 getVehicles path = do
   gzippedContent <- BL.readFile $ "./raw/" ++ path
   case (Aeson.eitherDecode $ GZ.decompress gzippedContent) of
-    (Right res) -> return res
+    (Right res) -> do
+      return res
     (Left err) -> do
-      print err
+      System.IO.hPutStrLn stderr err
       return []
 
-getAllVehicles :: [FilePath] -> IO [Vehicle]
+getAllVehicles :: [FilePath] -> IO [[Vehicle]]
 getAllVehicles [] = return []
 getAllVehicles (f : fs) = do
   vehicles <- getVehicles f
-  -- nextVehicles <- getAllVehicles fs
-  return $ vehicles -- ++ nextVehicles
+  nextVehicles <- getAllVehicles fs
+  return (vehicles:nextVehicles)
 
 main :: IO ()
 main = do
   fileList <- listDirectory "./raw"
   vehicles <- getAllVehicles fileList
-  P.putStrLn $ join "\n" $ P.map (\v -> (show $ latitude v) ++ "," ++ (show $ longitude v)) vehicles
+  P.putStrLn $ join "\n" $ P.map (\v -> (show $ latitude v) ++ "," ++ (show $ longitude v)) $ P.concat vehicles
 
