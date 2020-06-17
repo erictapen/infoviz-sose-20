@@ -17,9 +17,11 @@
           ).package;
         in
           pkgs.writeShellScriptBin "vbb-crawler.sh" ''
+            dir=$(date --iso-8601=date)
+            mkdir -p $dir
             ${pkgs.nodejs}/bin/node ${nodePackage}/lib/node_modules/vbb-crawler/index.js \
               | ${pkgs.gzip}/bin/gzip -c \
-              > "$(date --iso-8601=seconds).json.gz"
+              > "$dir/$(date --iso-8601=seconds).json.gz"
       '';
       };
 
