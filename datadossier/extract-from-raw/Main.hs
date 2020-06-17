@@ -22,8 +22,8 @@ import Data.List.Utils
 
 import Data.Geospatial
 
-baseUrl :: Text
-baseUrl = "https://fragdenstaat.de/api/v1/"
+basePath :: FilePath
+basePath = "./raw/2020-06-17/"
 
 data Vehicle
   = Vehicle
@@ -44,7 +44,7 @@ instance FromJSON Vehicle where
 
 getVehicles :: FilePath -> IO [Vehicle]
 getVehicles path = do
-  gzippedContent <- BL.readFile $ "./raw/" ++ path
+  gzippedContent <- BL.readFile $ basePath ++ path
   case (Aeson.eitherDecode $ GZ.decompress gzippedContent) of
     (Right res) -> do
       return res
@@ -61,7 +61,7 @@ getAllVehicles (f : fs) = do
 
 main :: IO ()
 main = do
-  fileList <- listDirectory "./raw"
+  fileList <- listDirectory basePath
   vehicles <- getAllVehicles fileList
   P.putStrLn $ join "\n" $ P.map (\v -> (show $ latitude v) ++ "," ++ (show $ longitude v)) $ P.concat vehicles
 
