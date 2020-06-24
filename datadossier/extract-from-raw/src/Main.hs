@@ -23,9 +23,13 @@ import System.Directory
 import System.IO
 import Prelude as P
 
+-- TODO remove, we want to read all the files
 basePath :: FilePath
 basePath = "./raw/2020-06-24/"
 
+-- | The deserialization of the per vehicle object from the HAFAS JSON.
+-- Unfortunately we can't really store the timestamp in the structure, as it is
+-- not part of the JSON, so we have to carry it separately..
 data Vehicle
   = Vehicle
       { id :: Text,
@@ -45,11 +49,15 @@ instance FromJSON Vehicle where
     longitude <- location .: "longitude"
     return Vehicle {..}
 
+-- | Filter function to grap specific datapoints, e.g. everything from one ride
+-- or one tram line.
 type Filter = (LocalTime, Vehicle) -> Bool
 
+-- | Read all timestamps and Vehicles from a .json.gz file, which is itself the
+-- result of one HAFAS API request. We do not filter here.
 getVehicles :: FilePath -> IO [(LocalTime, Vehicle)]
 getVehicles path =
-  let -- Now this is messy. We take the part of the filename containing the
+  let -- This is messy. We take the part of the filename containing the
       -- timestamp, encode it to a JSON string and then decode it, as Aeson
       -- can parse a LocalTime from String and I couldn't find any other method to do that...
       timeStamp = fromJust $ Aeson.decode $ Aeson.encode $ P.take 19 path :: LocalTime
@@ -62,6 +70,8 @@ getVehicles path =
             System.IO.hPutStrLn stderr err
             return []
 
+-- | Read a list of .json.gz files in, decode them and filter them using Filter
+-- functions.
 getAllVehicles :: [FilePath] -> Filter -> IO [(LocalTime, Vehicle)]
 getAllVehicles [] _ = return []
 getAllVehicles (f : fs) vehicleFilter = do
