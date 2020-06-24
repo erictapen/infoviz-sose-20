@@ -15,6 +15,7 @@ import Data.Maybe
 import Data.Text as TS
 import Data.Text.Encoding as TSE
 import Data.Text.IO as TSIO
+import Data.Text.Lazy.Encoding as TLE
 import Data.Time.LocalTime
 import Numeric (showHex)
 import System.Directory
@@ -43,29 +44,39 @@ instance FromJSON Vehicle where
     longitude <- location .: "longitude"
     return Vehicle {..}
 
-type Filter = Vehicle -> Bool
+type Filter = (ZonedTime, Vehicle) -> Bool
 
-getVehicles :: FilePath -> IO [Vehicle]
-getVehicles path = do
-  gzippedContent <- BL.readFile $ basePath ++ path
-  case (Aeson.eitherDecode $ GZ.decompress gzippedContent) of
-    (Right res) -> do
-      return res
-    (Left err) -> do
-      System.IO.hPutStrLn stderr err
-      return []
+getVehicles :: FilePath -> IO [(ZonedTime, Vehicle)]
+getVehicles path =
+  let -- Now this is messy. We take the part of the filename containing the
+      -- timestamp, encode it to a JSON string and then decode it, as Aeson
+      -- can parse a ZonedTime from String and I couldn't find any other method to do that...
+      timeStamp = fromJust $ Aeson.decode $ Aeson.encode $ P.take 25 path :: ZonedTime
+   in do
+        gzippedContent <- BL.readFile $ basePath ++ path
+        case (Aeson.eitherDecode $ GZ.decompress gzippedContent) of
+          (Right res) -> do
+            return $ P.zip (P.repeat timeStamp) res
+          (Left err) -> do
+            System.IO.hPutStrLn stderr err
+            return []
 
-getAllVehicles :: [FilePath] -> Filter -> IO [Vehicle]
+getAllVehicles :: [FilePath] -> Filter -> IO [(ZonedTime, Vehicle)]
 getAllVehicles [] _ = return []
 getAllVehicles (f : fs) vehicleFilter = do
   vehicles <- getVehicles f
   nextVehicles <- getAllVehicles fs vehicleFilter
   return $ (P.filter vehicleFilter vehicles) ++ nextVehicles
 
+filter96 :: Filter
+filter96 (_, v) = trip v == 53928
+
 main :: IO ()
 main = do
   fileList <- listDirectory basePath
-  vehicles <- getAllVehicles fileList (\v -> trip v == 53928)
+  vehicles <- getAllVehicles fileList filter96
   P.putStrLn
     $ join "\n"
-    $ P.map (\v -> (show $ latitude v) ++ "," ++ (show $ longitude v)) vehicles
+    $ P.map
+      (\(t, v) -> (show t) ++ ": " ++ (show $ latitude v) ++ "," ++ (show $ longitude v))
+      vehicles
