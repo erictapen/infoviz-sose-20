@@ -27,6 +27,12 @@ import Prelude as P
 basePath :: FilePath
 basePath = "./raw/2020-06-24/"
 
+-- | This is messy. We take the part of the filename containing the timestamp,
+-- encode it to a JSON string and then decode it, as Aeson can parse a
+-- LocalTime from String and I couldn't find any other method to do that...
+parseTime :: String -> LocalTime
+parseTime str = fromJust $ Aeson.decode $ Aeson.encode str
+
 -- | The deserialization of the per vehicle object from the HAFAS JSON.
 -- Unfortunately we can't really store the timestamp in the structure, as it is
 -- not part of the JSON, so we have to carry it separately..
@@ -57,10 +63,7 @@ type Filter = (LocalTime, Vehicle) -> Bool
 -- result of one HAFAS API request. We do not filter here.
 getVehicles :: FilePath -> IO [(LocalTime, Vehicle)]
 getVehicles path =
-  let -- This is messy. We take the part of the filename containing the
-      -- timestamp, encode it to a JSON string and then decode it, as Aeson
-      -- can parse a LocalTime from String and I couldn't find any other method to do that...
-      timeStamp = fromJust $ Aeson.decode $ Aeson.encode $ P.take 19 path :: LocalTime
+  let timeStamp = parseTime $ P.take 19 path
    in do
         gzippedContent <- BL.readFile $ basePath ++ path
         case (Aeson.eitherDecode $ GZ.decompress gzippedContent) of
@@ -81,7 +84,10 @@ getAllVehicles (f : fs) vehicleFilter = do
 
 -- Fahrt von Marie-Juchacz-Str nach Campus Jungfernsee, 2020-06-24 12:11 bis 12:52
 filter96 :: Filter
-filter96 (_, v) = trip v == 53928
+filter96 (t, v) =
+  trip v == 53928
+    && t >= parseTime "2020-06-24 12:11:28" -- Marie-Juchacz-Str
+    && t <= parseTime "2020-06-24 12:48:43" -- Rote Kaserne
 
 main :: IO ()
 main = do
