@@ -23,7 +23,7 @@ import Data.List.Utils
 import Data.Geospatial
 
 basePath :: FilePath
-basePath = "./raw/2020-06-17/"
+basePath = "./raw/2020-06-18/"
 
 data Vehicle
   = Vehicle
