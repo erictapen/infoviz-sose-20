@@ -38,7 +38,7 @@ parseTime str = fromJust $ Aeson.decode $ Aeson.encode str
 -- not part of the JSON, so we have to carry it separately..
 data Vehicle
   = Vehicle
-      { id :: Text,
+      { tramId :: Text,
         latitude :: Latitude,
         longitude :: Longitude,
         trip :: Int
@@ -49,7 +49,7 @@ instance FromJSON Vehicle where
   parseJSON = withObject "Vehicle" $ \o -> do
     line <- o .: "line"
     trip <- o .: "trip"
-    id <- line .: "id"
+    tramId <- line .: "id"
     location <- o .: "location"
     latitude <- location .: "latitude"
     longitude <- location .: "longitude"
@@ -57,7 +57,10 @@ instance FromJSON Vehicle where
 
 -- | Filter function to grap specific datapoints, e.g. everything from one ride
 -- or one tram line.
-type Filter = (LocalTime, Vehicle) -> Bool
+data Filter = Filter ((LocalTime, Vehicle) -> Bool)
+
+instance Semigroup Filter where
+  (Filter f) <> (Filter g) = Filter $ \x -> (f x) || (g x)
 
 -- | Read all timestamps and Vehicles from a .json.gz file, which is itself the
 -- result of one HAFAS API request. We do not filter here.
@@ -77,22 +80,26 @@ getVehicles path =
 -- functions.
 getAllVehicles :: [FilePath] -> Filter -> IO [(LocalTime, Vehicle)]
 getAllVehicles [] _ = return []
-getAllVehicles (f : fs) vehicleFilter = do
+getAllVehicles (f : fs) (Filter vehicleFilter) = do
   vehicles <- getVehicles f
-  nextVehicles <- getAllVehicles fs vehicleFilter
+  nextVehicles <- getAllVehicles fs $ Filter vehicleFilter
   return $ (P.filter vehicleFilter vehicles) ++ nextVehicles
 
--- Fahrt von Marie-Juchacz-Str nach Campus Jungfernsee, 2020-06-24 12:11 bis 12:52
-filter96 :: Filter
-filter96 (t, v) =
+-- | Fahrt von Marie-Juchacz-Str nach Campus Jungfernsee, 2020-06-24 12:11 bis 12:52
+filter96Track :: Filter
+filter96Track = Filter $ \(t, v) ->
   trip v == 53928
     && t >= parseTime "2020-06-24 12:11:28" -- Marie-Juchacz-Str
     && t <= parseTime "2020-06-24 12:48:43" -- Rote Kaserne
 
+-- | All data points for Tram 96, in both directions
+filter96 :: Filter
+filter96 = Filter $ \(_, v) -> tramId v == "96"
+
 main :: IO ()
 main = do
   fileList <- listDirectory basePath
-  vehicles <- getAllVehicles fileList filter96
+  vehicles <- getAllVehicles fileList $ filter96Track <> filter96
   P.putStrLn
     $ join "\n"
     $ P.map
