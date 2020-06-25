@@ -172,7 +172,7 @@ enrichTrackWithLength m (x : next : xs) =
   let cursor = 0
    in (m, x) : (enrichTrackWithLength (m + distance x next) (next : xs))
 
-svgFromData :: [(LocalTime, Vehicle)] -> String
+svgFromData :: [(LocalTime, Vehicle)] -> Element
 svgFromData dataPoints =
   let -- track96 is the list of coordinates on Track 96, sorted from MJ-Str to Campus Jungfernsee.
       track96 :: Track
@@ -182,14 +182,21 @@ svgFromData dataPoints =
           $ sortBy (\a -> \b -> compare (fst a) (fst b))
           --         v This construct is ugly, but I don't know how to acess the field in a newtype.
           $ P.filter ((\(Filter f) -> f) filter96Track) dataPoints
-   in P.concat $ P.map (\coord -> (show coord) ++ ": " ++ (show $ locateCoordOnTrackLength track96 coord) ++ "\n")
-        $ P.map (\(_, v) -> (latitude v, longitude v)) dataPoints
+      xyToDot :: (LocalTime, GeoCoord) -> Element
+      xyToDot (t, coord) =
+        -- TODO
+        circle_
+          [ Cx_ <<- (TS.pack $ show 1),
+            Cy_ <<- "0",
+            R_ <<- "0"
+          ]
+   in mconcat $ P.map xyToDot $ P.map (\(t, v) -> (t, (latitude v, longitude v))) dataPoints
 
 main :: IO ()
 main = do
   fileList <- listDirectory basePath
   vehicles <- getAllVehicles fileList $ filter96Track -- <> filter96
-  P.putStrLn $ svgFromData vehicles
+  P.putStrLn $ show $ svgFromData vehicles
 -- P.putStrLn
 --   $ join "\n"
 --   $ P.map
