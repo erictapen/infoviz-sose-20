@@ -27,6 +27,45 @@ import Prelude as P
 basePath :: FilePath
 basePath = "./raw/2020-06-24/"
 
+-- | Earth radius in meters
+earthRadius :: Double
+earthRadius = 6371000
+
+type Vec = (Double, Double, Double)
+
+type GeoCoord = (Latitude, Longitude)
+
+geoToVec :: GeoCoord -> Vec
+geoToVec (lat, lon) =
+  let latR = lat * pi / 180
+      lonR = lon * pi / 180
+   in ( earthRadius * cos lonR * cos latR,
+        earthRadius * sin lonR * cos latR,
+        earthRadius * sin latR
+      )
+
+-- | Get the length of a 3D vector
+-- Example:
+-- vecLength $ vecSubtract (geoToVec 52.359792 13.137204) (geoToVec 52.424919 13.053749)
+vecLength :: Vec -> Double
+vecLength (x, y, z) = sqrt $ x * x + y * y + z * z
+
+vecSubtract :: Vec -> Vec -> Vec
+vecSubtract (x1, y1, z1) (x2, y2, z2) = (x2 - x1, y2 - y1, z2 - z1)
+
+-- | A and B are two connected Locations on the exact track. C is our inexact
+-- mesurement. This function maps C to the track andreturns the mapped distance
+-- we treveled from A in meters.
+-- Example:
+-- mapToTrack (52.415193, 13.050288) (52.415795, 13.050324) (52.415283, 13.050306)
+-- This should be about 10.3 meters.
+mapToTrack :: GeoCoord -> GeoCoord -> GeoCoord -> Double
+mapToTrack a b c =
+  let (abx, aby, abz) = vecSubtract (geoToVec a) (geoToVec b)
+      (acx, acy, acz) = vecSubtract (geoToVec a) (geoToVec c)
+      -- TODO don't take sqrt from a negative radicand
+   in sqrt $ abx * acx + aby * acy + abz * acz
+
 -- | This is messy. We take the part of the filename containing the timestamp,
 -- encode it to a JSON string and then decode it, as Aeson can parse a
 -- LocalTime from String and I couldn't find any other method to do that...
@@ -92,14 +131,14 @@ filter96Track = Filter $ \(t, v) ->
     && t >= parseTime "2020-06-24 12:11:28" -- Marie-Juchacz-Str
     && t <= parseTime "2020-06-24 12:48:43" -- Rote Kaserne
 
--- | All data points for Tram 96, in both directions
+-- | All data points for Tram 96, in both directions.
 filter96 :: Filter
 filter96 = Filter $ \(_, v) -> tramId v == "96"
 
 main :: IO ()
 main = do
   fileList <- listDirectory basePath
-  vehicles <- getAllVehicles fileList $ filter96Track <> filter96
+  vehicles <- getAllVehicles fileList $ filter96Track -- <> filter96
   P.putStrLn
     $ join "\n"
     $ P.map
