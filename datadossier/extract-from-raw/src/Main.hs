@@ -78,8 +78,8 @@ mapToTrack a b c =
 -- | This is messy. We take the part of the filename containing the timestamp,
 -- encode it to a JSON string and then decode it, as Aeson can parse a
 -- LocalTime from String and I couldn't find any other method to do that...
-parseTime :: String -> LocalTime
-parseTime str = fromJust $ Aeson.decode $ Aeson.encode str
+parseTime' :: String -> LocalTime
+parseTime' str = fromJust $ Aeson.decode $ Aeson.encode str
 
 -- | The deserialization of the per vehicle object from the HAFAS JSON.
 -- Unfortunately we can't really store the timestamp in the structure, as it is
@@ -116,7 +116,7 @@ instance Semigroup Filter where
 -- result of one HAFAS API request. We do not filter here.
 getVehicles :: FilePath -> IO [(LocalTime, Vehicle)]
 getVehicles path =
-  let timeStamp = parseTime $ P.take 19 path
+  let timeStamp = parseTime' $ P.take 19 path
    in do
         gzippedContent <- BL.readFile $ basePath ++ path
         case (Aeson.eitherDecode $ GZ.decompress gzippedContent) of
@@ -139,8 +139,8 @@ getAllVehicles (f : fs) (Filter vehicleFilter) = do
 filter96Track :: Filter
 filter96Track = Filter $ \(t, v) ->
   trip v == 53928
-    && t >= parseTime "2020-06-24 12:11:28" -- Marie-Juchacz-Str
-    && t <= parseTime "2020-06-24 12:48:43" -- Rote Kaserne
+    && t >= parseTime' "2020-06-24 12:11:28" -- Marie-Juchacz-Str
+    && t <= parseTime' "2020-06-24 12:48:43" -- Rote Kaserne
 
 -- | All data points for Tram 96, in both directions.
 filter96 :: Filter
@@ -172,6 +172,17 @@ enrichTrackWithLength m (x : next : xs) =
   let cursor = 0
    in (m, x) : (enrichTrackWithLength (m + distance x next) (next : xs))
 
+-- document root
+svg :: Element -> Element
+svg content =
+  doctype
+    <> with
+      (svg11_ content)
+      [Version_ <<- "1.1", Width_ <<- "3600mm", Height_ <<- "200mm", ViewBox_ <<- "0 0 200 200"]
+
+showR :: Double -> Text
+showR r = TS.pack $ (show r)
+
 svgFromData :: [(LocalTime, Vehicle)] -> Element
 svgFromData dataPoints =
   let -- track96 is the list of coordinates on Track 96, sorted from MJ-Str to Campus Jungfernsee.
@@ -182,23 +193,28 @@ svgFromData dataPoints =
           $ sortBy (\a -> \b -> compare (fst a) (fst b))
           --         v This construct is ugly, but I don't know how to acess the field in a newtype.
           $ P.filter ((\(Filter f) -> f) filter96Track) dataPoints
+      seconds :: TimeOfDay -> Double
+      seconds (TimeOfDay h m s) =
+        fromIntegral $
+          3600 * h
+            + 60 * m
+            -- Yeah… Seriously. That's how I get the seconds out of a TimeOfDay.
+            + div (fromEnum s) 1000000000000
       xyToDot :: (LocalTime, GeoCoord) -> Element
       xyToDot (t, coord) =
-        -- TODO
-        circle_
-          [ Cx_ <<- (TS.pack $ show 1),
-            Cy_ <<- "0",
-            R_ <<- "0"
-          ]
+        let my = locateCoordOnTrackLength track96 coord
+         in case my of
+              Nothing -> mempty
+              Just y ->
+                circle_
+                  [ Cx_ <<- (showR $ (*) 0.5 $ seconds $ localTimeOfDay t),
+                    Cy_ <<- (showR y),
+                    R_ <<- "20"
+                  ]
    in mconcat $ P.map xyToDot $ P.map (\(t, v) -> (t, (latitude v, longitude v))) dataPoints
 
 main :: IO ()
 main = do
   fileList <- listDirectory basePath
-  vehicles <- getAllVehicles fileList $ filter96Track -- <> filter96
-  P.putStrLn $ show $ svgFromData vehicles
--- P.putStrLn
---   $ join "\n"
---   $ P.map
---     (\(t, v) -> (show t) ++ ", " ++ (show $ latitude v) ++ ", " ++ (show $ longitude v))
---   $ sortBy (\a -> \b -> compare (fst a) (fst b)) vehicles
+  vehicles <- getAllVehicles fileList $ filter96Track <> filter96
+  P.writeFile "test.svg" $ show $ svg $ g_ [] $ svgFromData vehicles
