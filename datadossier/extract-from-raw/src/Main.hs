@@ -50,6 +50,7 @@ geoToVec (lat, lon) =
 vecLength :: Vec -> Double
 vecLength (x, y, z) = sqrt $ x * x + y * y + z * z
 
+-- | vecSubtract a b = vector from a to b (or ab)
 vecSubtract :: Vec -> Vec -> Vec
 vecSubtract (x1, y1, z1) (x2, y2, z2) = (x2 - x1, y2 - y1, z2 - z1)
 
@@ -63,8 +64,7 @@ mapToTrack :: GeoCoord -> GeoCoord -> GeoCoord -> Double
 mapToTrack a b c =
   let (abx, aby, abz) = vecSubtract (geoToVec a) (geoToVec b)
       (acx, acy, acz) = vecSubtract (geoToVec a) (geoToVec c)
-      -- TODO don't take sqrt from a negative radicand
-   in sqrt $ abx * acx + aby * acy + abz * acz
+   in (abx * acx + aby * acy + abz * acz) / vecLength (abx, aby, abz)
 
 -- | This is messy. We take the part of the filename containing the timestamp,
 -- encode it to a JSON string and then decode it, as Aeson can parse a
@@ -138,7 +138,7 @@ filter96 = Filter $ \(_, v) -> tramId v == "96"
 main :: IO ()
 main = do
   fileList <- listDirectory basePath
-  vehicles <- getAllVehicles fileList $ filter96Track -- <> filter96
+  vehicles <- getAllVehicles fileList $ filter96Track <> filter96
   P.putStrLn
     $ join "\n"
     $ P.map
