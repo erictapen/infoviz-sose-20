@@ -18,6 +18,7 @@ import Data.Text.Encoding as TSE
 import Data.Text.IO as TSIO
 import Data.Text.Lazy.Encoding as TLE
 import Data.Time.LocalTime
+import Graphics.Svg
 import Numeric (showHex)
 import System.Directory
 import System.IO
@@ -54,17 +55,25 @@ vecLength (x, y, z) = sqrt $ x * x + y * y + z * z
 vecSubtract :: Vec -> Vec -> Vec
 vecSubtract (x1, y1, z1) (x2, y2, z2) = (x2 - x1, y2 - y1, z2 - z1)
 
+-- | Distance in meters between two GeoCoord.
+distance :: GeoCoord -> GeoCoord -> Meter
+distance a b = vecLength $ vecSubtract (geoToVec a) (geoToVec b)
+
 -- | A and B are two connected Locations on the exact track. C is our inexact
 -- mesurement. This function maps C to the track andreturns the mapped distance
 -- we treveled from A in meters.
 -- Example:
 -- mapToTrack (52.415193, 13.050288) (52.415795, 13.050324) (52.415283, 13.050306)
--- This should be about 10.3 meters.
-mapToTrack :: GeoCoord -> GeoCoord -> GeoCoord -> Double
+-- This should Just be about 10.3 meters.
+mapToTrack :: GeoCoord -> GeoCoord -> GeoCoord -> Maybe Double
 mapToTrack a b c =
   let (abx, aby, abz) = vecSubtract (geoToVec a) (geoToVec b)
       (acx, acy, acz) = vecSubtract (geoToVec a) (geoToVec c)
-   in (abx * acx + aby * acy + abz * acz) / vecLength (abx, aby, abz)
+      abLength = vecLength (abx, aby, abz)
+      res = (abx * acx + aby * acy + abz * acz) / abLength
+   in if 0 <= res && res <= abLength
+        then Just res
+        else Nothing
 
 -- | This is messy. We take the part of the filename containing the timestamp,
 -- encode it to a JSON string and then decode it, as Aeson can parse a
@@ -84,6 +93,7 @@ data Vehicle
       }
   deriving (Show)
 
+-- | Vehicle is directly derived from the JSON data.
 instance FromJSON Vehicle where
   parseJSON = withObject "Vehicle" $ \o -> do
     line <- o .: "line"
@@ -98,6 +108,7 @@ instance FromJSON Vehicle where
 -- or one tram line.
 data Filter = Filter ((LocalTime, Vehicle) -> Bool)
 
+-- | So we can combine Filters with (<>).
 instance Semigroup Filter where
   (Filter f) <> (Filter g) = Filter $ \x -> (f x) || (g x)
 
@@ -135,12 +146,52 @@ filter96Track = Filter $ \(t, v) ->
 filter96 :: Filter
 filter96 = Filter $ \(_, v) -> tramId v == "96"
 
+type Track = [(Meter, GeoCoord)]
+
+type Meter = Double
+
+locateCoordOnTrackLength :: Track -> GeoCoord -> Maybe Meter
+locateCoordOnTrackLength track coord =
+  let compareByDistance (_, a) (_, b) = compare (distance coord a) (distance coord b)
+      compareByPosition (a, _) (b, _) = compare a b
+      -- The two trackpoints closest to coord, sorted by their position on the track.
+      twoClosestTrackPoints =
+        sortBy compareByPosition
+          $ P.take 2
+          $ sortBy compareByDistance track
+      (currentMark, firstPoint) = twoClosestTrackPoints !! 0
+      (_, secondPoint) = twoClosestTrackPoints !! 1
+   in case mapToTrack firstPoint secondPoint coord of
+        (Just v) -> Just $ currentMark + v
+        Nothing -> Nothing
+
+-- | Put the current kilometre mark on the track.
+enrichTrackWithLength :: Meter -> [GeoCoord] -> Track
+enrichTrackWithLength m (x : []) = (m, x) : []
+enrichTrackWithLength m (x : next : xs) =
+  let cursor = 0
+   in (m, x) : (enrichTrackWithLength (m + distance x next) (next : xs))
+
+svgFromData :: [(LocalTime, Vehicle)] -> String
+svgFromData dataPoints =
+  let -- track96 is the list of coordinates on Track 96, sorted from MJ-Str to Campus Jungfernsee.
+      track96 :: Track
+      track96 =
+        enrichTrackWithLength 0
+          $ P.map (\(_, v) -> (latitude v, longitude v))
+          $ sortBy (\a -> \b -> compare (fst a) (fst b))
+          --         v This construct is ugly, but I don't know how to acess the field in a newtype.
+          $ P.filter ((\(Filter f) -> f) filter96Track) dataPoints
+   in P.concat $ P.map (\coord -> (show coord) ++ ": " ++ (show $ locateCoordOnTrackLength track96 coord) ++ "\n")
+        $ P.map (\(_, v) -> (latitude v, longitude v)) dataPoints
+
 main :: IO ()
 main = do
   fileList <- listDirectory basePath
-  vehicles <- getAllVehicles fileList $ filter96Track <> filter96
-  P.putStrLn
-    $ join "\n"
-    $ P.map
-      (\(t, v) -> (show t) ++ ", " ++ (show $ latitude v) ++ ", " ++ (show $ longitude v))
-    $ sortBy (\a -> \b -> compare (fst a) (fst b)) vehicles
+  vehicles <- getAllVehicles fileList $ filter96Track -- <> filter96
+  P.putStrLn $ svgFromData vehicles
+-- P.putStrLn
+--   $ join "\n"
+--   $ P.map
+--     (\(t, v) -> (show t) ++ ", " ++ (show $ latitude v) ++ ", " ++ (show $ longitude v))
+--   $ sortBy (\a -> \b -> compare (fst a) (fst b)) vehicles
