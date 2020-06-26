@@ -150,6 +150,7 @@ type Track = [(Meter, GeoCoord)]
 
 type Meter = Double
 
+-- | This returns the distance a tram has traveled, starting from the start of the track.
 locateCoordOnTrackLength :: Track -> GeoCoord -> Maybe Meter
 locateCoordOnTrackLength track coord =
   let compareByDistance (_, a) (_, b) = compare (distance coord a) (distance coord b)
@@ -165,7 +166,8 @@ locateCoordOnTrackLength track coord =
         (Just v) -> Just $ currentMark + v
         Nothing -> Nothing
 
--- | Put the current kilometre mark on the track.
+-- | Put the current kilometre mark on the track. Needs a starting Meter, as it
+-- operates recursviely.
 enrichTrackWithLength :: Meter -> [GeoCoord] -> Track
 enrichTrackWithLength m (x : []) = (m, x) : []
 enrichTrackWithLength m (x : next : xs) =
@@ -183,6 +185,7 @@ svg content =
 showR :: Double -> Text
 showR r = TS.pack $ (show r)
 
+-- | Generate the SVG Element that shows all the data points.
 svgFromData :: [(LocalTime, Vehicle)] -> Element
 svgFromData dataPoints =
   let -- track96 is the list of coordinates on Track 96, sorted from MJ-Str to Campus Jungfernsee.
