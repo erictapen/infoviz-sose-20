@@ -210,7 +210,7 @@ svgFromData dataPoints =
               Nothing -> mempty
               Just y ->
                 circle_
-                  [ Cx_ <<- (showR $ (*) 0.5 $ seconds $ localTimeOfDay t),
+                  [ Cx_ <<- (showR $ (*) 4.0 $ seconds $ localTimeOfDay t),
                     Cy_ <<- (showR y),
                     R_ <<- "20"
                   ]
