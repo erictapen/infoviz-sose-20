@@ -63,7 +63,7 @@ hafas.radar({
 ...
 ```
 
-For course participants: See `justin-example.json` on the SFTP server as an example.
+For course participants: See [`justin-example.json`](https://infovis.fh-potsdam.de/datasets/justin-example.json) on the SFTP server as an example.
 
 I did that every 10 seconds for the course of the last two weeks.
 
