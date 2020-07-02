@@ -11,7 +11,7 @@ Unfortunately, this project isn't reproducible yet. Coming soon!
 
 The Trams in Potsdam are operated by the [*Verkehrbetrieb Potsdam (ViP)*](https://www.swp-potsdam.de/de/verkehr/) which is a part of [*Verkehrsverbund Berlin-Brandenburg (VBB)*](https://www.vbb.de/). ViP as well as VBB don't offer an open API for getting delay data on their schedules, but the VBB internally uses a system called HAFAS for managing their train and bus schedules. HAFAS is very popular among european transport providers, so some kind souls wrote a [reverse engineered client](https://github.com/public-transport/hafas-client) for the system.
 
-This `hafas-client` project is written in NodeJS and allows for querying the location of *all vehicles within a certain geographic windwo*.
+This `hafas-client` project is written in NodeJS and allows for querying the location of *all vehicles within a certain geographic window*.
 
 ```js
 'use strict'
