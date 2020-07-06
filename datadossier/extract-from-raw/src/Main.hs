@@ -32,10 +32,13 @@ basePath = "./raw/2020-06-24/"
 earthRadius :: Double
 earthRadius = 6371000
 
+-- | 3D position on earths surface in meters.
 type Vec = (Double, Double, Double)
 
+-- | Geo coordinate
 type GeoCoord = (Latitude, Longitude)
 
+-- | project a point on earths surface from geocoordinates to a 3D position in meters.
 geoToVec :: GeoCoord -> Vec
 geoToVec (lat, lon) =
   let latR = lat * pi / 180
