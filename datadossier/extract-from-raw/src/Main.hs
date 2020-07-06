@@ -107,13 +107,23 @@ instance FromJSON Vehicle where
     longitude <- location .: "longitude"
     return Vehicle {..}
 
+instance ToJSON Vehicle where
+  toJSON (Vehicle {tramId = tramId, latitude = latitude, longitude = longitude, trip = trip}) =
+    object
+      [ "line" .= (object ["id" .= tramId]),
+        "trip" .= trip,
+        "location" .= (object ["latitude" .= latitude, "longitude" .= longitude])
+      ]
+
 -- | Filter function to grap specific datapoints, e.g. everything from one ride
 -- or one tram line.
-data Filter = Filter ((LocalTime, Vehicle) -> Bool)
+data Filter = Filter Text ((LocalTime, Vehicle) -> Bool)
 
 -- | So we can combine Filters with (<>).
 instance Semigroup Filter where
-  (Filter f) <> (Filter g) = Filter $ \x -> (f x) || (g x)
+  (Filter name1 f) <> (Filter name2 g) = Filter
+    (name1 <> "-" <> name2)
+    $ \x -> (f x) || (g x)
 
 -- | Read all timestamps and Vehicles from a .json.gz file, which is itself the
 -- result of one HAFAS API request. We do not filter here.
@@ -129,25 +139,44 @@ getVehicles path =
             System.IO.hPutStrLn stderr err
             return []
 
+-- | This is a proxy for getAllVehicles, but uses a cached JSON file in
+-- ./cache/ that is named after the used Filter.
+getAllVehiclesCached :: [FilePath] -> Filter -> IO [(LocalTime, Vehicle)]
+getAllVehiclesCached fileList (Filter filterName vehicleFilter) =
+  let cacheName = "./cache/" <> filterName <> ".json"
+      cachePath = TS.unpack cacheName
+   in do
+        fileExists <- doesFileExist cachePath
+        if fileExists
+          then do
+            TSIO.putStrLn $ "Cache hit: " <> cacheName
+            cacheContent <- BL.readFile cachePath
+            return $ fromJust $ Aeson.decode cacheContent
+          else do
+            TSIO.putStrLn $ "Cache miss: " <> cacheName
+            res <- getAllVehicles fileList (Filter filterName vehicleFilter)
+            BL.writeFile cachePath $ Aeson.encode res
+            return res
+
 -- | Read a list of .json.gz files in, decode them and filter them using Filter
 -- functions.
 getAllVehicles :: [FilePath] -> Filter -> IO [(LocalTime, Vehicle)]
 getAllVehicles [] _ = return []
-getAllVehicles (f : fs) (Filter vehicleFilter) = do
+getAllVehicles (f : fs) (Filter filterName vehicleFilter) = do
   vehicles <- getVehicles f
-  nextVehicles <- getAllVehicles fs $ Filter vehicleFilter
+  nextVehicles <- getAllVehicles fs $ Filter filterName vehicleFilter
   return $ (P.filter vehicleFilter vehicles) ++ nextVehicles
 
 -- | Fahrt von Marie-Juchacz-Str nach Campus Jungfernsee, 2020-06-24 12:11 bis 12:52
 filter96Track :: Filter
-filter96Track = Filter $ \(t, v) ->
+filter96Track = Filter "filter96Track" $ \(t, v) ->
   trip v == 53928
     && t >= parseTime' "2020-06-24 12:11:28" -- Marie-Juchacz-Str
     && t <= parseTime' "2020-06-24 12:48:43" -- Rote Kaserne
 
 -- | All data points for Tram 96, in both directions.
 filter96 :: Filter
-filter96 = Filter $ \(_, v) -> tramId v == "96"
+filter96 = Filter "filter96" $ \(_, v) -> tramId v == "96"
 
 type Track = [(Meter, GeoCoord)]
 
@@ -198,7 +227,7 @@ svgFromData dataPoints =
           $ P.map (\(_, v) -> (latitude v, longitude v))
           $ sortBy (\a -> \b -> compare (fst a) (fst b))
           --         v This construct is ugly, but I don't know how to acess the field in a newtype.
-          $ P.filter ((\(Filter f) -> f) filter96Track) dataPoints
+          $ P.filter ((\(Filter _ f) -> f) filter96Track) dataPoints
       seconds :: TimeOfDay -> Double
       seconds (TimeOfDay h m s) =
         fromIntegral $
@@ -222,5 +251,5 @@ svgFromData dataPoints =
 main :: IO ()
 main = do
   fileList <- listDirectory basePath
-  vehicles <- getAllVehicles fileList $ filter96Track <> filter96
-  P.writeFile "test.svg" $ show $ svg $ g_ [] $ svgFromData vehicles
+  vehicles <- getAllVehiclesCached fileList $ filter96Track <> filter96
+  P.writeFile "96.svg" $ show $ svg $ g_ [] $ svgFromData vehicles
