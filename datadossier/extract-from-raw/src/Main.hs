@@ -10,6 +10,7 @@ import Data.ByteString.Lazy as BL
 import Data.ByteString.Lazy.UTF8 as BLU
 import Data.ByteString.UTF8 as BSU
 import Data.Geospatial
+import Data.IntMap.Strict as IntMap
 import Data.List
 import Data.List.Utils
 import Data.Maybe
@@ -115,6 +116,11 @@ instance ToJSON Vehicle where
         "location" .= (object ["latitude" .= latitude, "longitude" .= longitude])
       ]
 
+-- | All the data about one Tram connection, e.g. Line 96 from
+-- Marie-Juchacz-Straße to Campus Jungfernsee. The key in the IntMap is the
+-- trip id from raw data.
+type Line = IntMap [(LocalTime, Vehicle)]
+
 -- | Filter function to grap specific datapoints, e.g. everything from one ride
 -- or one tram line.
 data Filter = Filter Text ((LocalTime, Vehicle) -> Bool)
@@ -139,9 +145,18 @@ getVehicles path =
             System.IO.hPutStrLn stderr err
             return []
 
+-- | Read a list of .json.gz files in, decode them and filter them using Filter
+-- functions.
+getAllVehicles :: [FilePath] -> Filter -> IO [(LocalTime, Vehicle)]
+getAllVehicles [] _ = return []
+getAllVehicles (f : fs) (Filter filterName vehicleFilter) = do
+  vehicles <- getVehicles f
+  nextVehicles <- getAllVehicles fs $ Filter filterName vehicleFilter
+  return $ (P.filter vehicleFilter vehicles) ++ nextVehicles
+
 -- | This is a proxy for getAllVehicles, but uses a cached JSON file in
 -- ./cache/ that is named after the used Filter.
-getAllVehiclesCached :: [FilePath] -> Filter -> IO [(LocalTime, Vehicle)]
+getAllVehiclesCached :: [FilePath] -> Filter -> IO Line
 getAllVehiclesCached fileList (Filter filterName vehicleFilter) =
   let cacheName = "./cache/" <> filterName <> ".json"
       cachePath = TS.unpack cacheName
@@ -154,18 +169,19 @@ getAllVehiclesCached fileList (Filter filterName vehicleFilter) =
             return $ fromJust $ Aeson.decode cacheContent
           else do
             TSIO.putStrLn $ "Cache miss: " <> cacheName
-            res <- getAllVehicles fileList (Filter filterName vehicleFilter)
-            BL.writeFile cachePath $ Aeson.encode res
-            return res
+            rawRes <- getAllVehicles fileList (Filter filterName vehicleFilter)
+            let res = transformVehicles rawRes
+             in do
+                  BL.writeFile cachePath $ Aeson.encode res
+                  return res
 
--- | Read a list of .json.gz files in, decode them and filter them using Filter
--- functions.
-getAllVehicles :: [FilePath] -> Filter -> IO [(LocalTime, Vehicle)]
-getAllVehicles [] _ = return []
-getAllVehicles (f : fs) (Filter filterName vehicleFilter) = do
-  vehicles <- getVehicles f
-  nextVehicles <- getAllVehicles fs $ Filter filterName vehicleFilter
-  return $ (P.filter vehicleFilter vehicles) ++ nextVehicles
+compareTimeStamp :: (LocalTime, Vehicle) -> (LocalTime, Vehicle) -> Ordering
+compareTimeStamp a b = compare (fst a) (fst b)
+
+transformVehicles :: [(LocalTime, Vehicle)] -> Line
+transformVehicles vehicles =
+  let mapWithUnorderedLists = fromListWith (++) $ P.map (\(t, v) -> (trip v, [(t, v)])) vehicles
+   in IntMap.map (sortBy compareTimeStamp) mapWithUnorderedLists
 
 -- | Fahrt von Marie-Juchacz-Str nach Campus Jungfernsee, 2020-06-24 12:11 bis 12:52
 filter96Track :: Filter
@@ -214,42 +230,68 @@ svg content =
       (svg11_ content)
       [Version_ <<- "1.1", Width_ <<- "3600mm", Height_ <<- "200mm", ViewBox_ <<- "0 0 200 200"]
 
+-- TODO: remove and replace with Graphics.Svg.Path.toText
 showR :: Double -> Text
 showR r = TS.pack $ (show r)
 
--- | Generate the SVG Element that shows all the data points.
-svgFromData :: [(LocalTime, Vehicle)] -> Element
-svgFromData dataPoints =
+-- | Seconds from midnight on a TimeOfDay
+seconds :: TimeOfDay -> Double
+seconds (TimeOfDay h m s) =
+  fromIntegral $
+    3600 * h
+      + 60 * m
+      -- Yeah… Seriously. That's how I get the seconds out of a TimeOfDay.
+      + div (fromEnum s) 1000000000000
+
+tripToElement ::
+  (LocalTime -> Double) ->
+  (Vehicle -> Maybe Double) ->
+  (Int, [(LocalTime, Vehicle)]) ->
+  Element
+tripToElement _ _ (_, []) = mempty
+tripToElement fx fy (tripId, (t, v) : tripData) = case (fy v) of
+  Just y ->
+    path_
+      [ D_ <<- (mA (fx t) y <> (tripToElement' fx fy tripData)),
+        Stroke_ <<- "black",
+        Fill_ <<- "none",
+        Stroke_width_ <<- "20"
+      ]
+  Nothing -> tripToElement fx fy (tripId, tripData)
+
+tripToElement' ::
+  (LocalTime -> Double) ->
+  (Vehicle -> Maybe Double) ->
+  [(LocalTime, Vehicle)] ->
+  Text
+tripToElement' _ _ [] = ""
+tripToElement' fx fy ((t, v) : ds) = case (fy v) of
+  Just y -> lA (fx t) y <> tripToElement' fx fy ds
+  Nothing -> tripToElement' fx fy ds
+
+lineToElement :: Line -> Element
+lineToElement line =
   let -- track96 is the list of coordinates on Track 96, sorted from MJ-Str to Campus Jungfernsee.
       track96 :: Track
       track96 =
         enrichTrackWithLength 0
           $ P.map (\(_, v) -> (latitude v, longitude v))
-          $ sortBy (\a -> \b -> compare (fst a) (fst b))
-          --         v This construct is ugly, but I don't know how to acess the field in a newtype.
-          $ P.filter ((\(Filter _ f) -> f) filter96Track) dataPoints
-      seconds :: TimeOfDay -> Double
-      seconds (TimeOfDay h m s) =
-        fromIntegral $
-          3600 * h
-            + 60 * m
-            -- Yeah… Seriously. That's how I get the seconds out of a TimeOfDay.
-            + div (fromEnum s) 1000000000000
-      xyToDot :: (LocalTime, GeoCoord) -> Element
-      xyToDot (t, coord) =
-        let my = locateCoordOnTrackLength track96 coord
-         in case my of
-              Nothing -> mempty
-              Just y ->
-                circle_
-                  [ Cx_ <<- (showR $ (*) 4.0 $ seconds $ localTimeOfDay t),
-                    Cy_ <<- (showR y),
-                    R_ <<- "20"
-                  ]
-   in mconcat $ P.map xyToDot $ P.map (\(t, v) -> (t, (latitude v, longitude v))) dataPoints
+          $ sortBy compareTimeStamp
+          -- letssss hope that trip IDs are unique in all trips ever gathered!
+          $ fromJust
+          $ IntMap.lookup 53928 line
+      fx t = (*) 4.0 $ seconds $ localTimeOfDay t
+      fy v = locateCoordOnTrackLength track96 (latitude v, longitude v)
+   in P.mconcat $ P.map (tripToElement fx fy) $ IntMap.toList line
 
+-- | Generate the SVG Element that shows all the data points.
+-- svgFromData :: [(LocalTime, Vehicle)] -> Element
+-- svgFromData dataPoints =
+--   let
+--    in mconcat $ P.map xyToDot $ P.map (\(t, v) -> (t, (latitude v, longitude v))) dataPoints
 main :: IO ()
 main = do
   fileList <- listDirectory basePath
   vehicles <- getAllVehiclesCached fileList $ filter96Track <> filter96
-  P.writeFile "96.svg" $ show $ svg $ g_ [] $ svgFromData vehicles
+  print "fertig"
+  P.writeFile "96.svg" $ show $ svg $ g_ [] $ lineToElement vehicles
