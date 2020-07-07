@@ -9,6 +9,7 @@ import Data.ByteString.Builder
 import Data.ByteString.Lazy as BL
 import Data.ByteString.Lazy.UTF8 as BLU
 import Data.ByteString.UTF8 as BSU
+import Data.Functor
 import Data.Geospatial
 import Data.IntMap.Strict as IntMap
 import Data.List
@@ -19,7 +20,6 @@ import Data.Text.Encoding as TSE
 import Data.Text.IO as TSIO
 import Data.Text.Lazy.Encoding as TLE
 import Data.Time.LocalTime
-import Data.Functor
 import Graphics.Svg
 import Numeric (showHex)
 import System.Directory
@@ -232,10 +232,6 @@ svg content =
       (svg11_ content)
       [Version_ <<- "1.1", Width_ <<- "8640", Height_ <<- "200", ViewBox_ <<- "0 0 8640 200"]
 
--- TODO: remove and replace with Graphics.Svg.Path.toText
-showR :: Double -> Text
-showR r = TS.pack $ (show r)
-
 -- | Seconds from midnight on a TimeOfDay
 seconds :: TimeOfDay -> Double
 seconds (TimeOfDay h m s) =
@@ -245,6 +241,8 @@ seconds (TimeOfDay h m s) =
       -- Yeah… Seriously. That's how I get the seconds out of a TimeOfDay.
       + div (fromEnum s) 1000000000000
 
+-- | Transforms a [(LocalTime -> Double)] and two placement functions fx, fy to
+-- an SVG Element. Recursively calls tripToElement'.
 tripToElement ::
   (LocalTime -> Double) ->
   (Vehicle -> Maybe Double) ->
@@ -262,6 +260,7 @@ tripToElement fx fy (tripId, (t, v) : tripData) = case (fy v) of
       ]
   Nothing -> tripToElement fx fy (tripId, tripData)
 
+-- | Recursively generate the tail of the path elements.
 tripToElement' ::
   (LocalTime -> Double) ->
   (Vehicle -> Maybe Double) ->
@@ -272,6 +271,7 @@ tripToElement' fx fy ((t, v) : ds) = case (fy v) of
   Just y -> lA (fx t) y <> tripToElement' fx fy ds
   Nothing -> tripToElement' fx fy ds
 
+-- | Transforms a Line to an SVG ELement.
 lineToElement :: Line -> Element
 lineToElement line =
   let -- track96 is the list of coordinates on Track 96, sorted from MJ-Str to Campus Jungfernsee.
@@ -286,11 +286,14 @@ lineToElement line =
           $ IntMap.lookup 53928 line
       fx t = (*) 0.1 $ seconds $ localTimeOfDay t
       fy v = fmap (200 *) $ locateCoordOnTrackLength track96 (latitude v, longitude v)
-   in P.mconcat $ P.map (tripToElement fx fy) $ IntMap.toList line
+   in g_ []
+        $ P.mconcat
+        $ P.map (tripToElement fx fy)
+        $ IntMap.toList line
 
 main :: IO ()
 main = do
   fileList <- listDirectory basePath
   vehicles <- getAllVehiclesCached fileList $ filter96Track <> filter96
   print "fertig"
-  P.writeFile "96.svg" $ show $ svg $ g_ [] $ lineToElement vehicles
+  P.writeFile "96.svg" $ show $ svg $ lineToElement vehicles
