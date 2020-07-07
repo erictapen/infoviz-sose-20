@@ -19,6 +19,7 @@ import Data.Text.Encoding as TSE
 import Data.Text.IO as TSIO
 import Data.Text.Lazy.Encoding as TLE
 import Data.Time.LocalTime
+import Data.Functor
 import Graphics.Svg
 import Numeric (showHex)
 import System.Directory
@@ -198,11 +199,12 @@ type Track = [(Meter, GeoCoord)]
 
 type Meter = Double
 
--- | This returns the distance a tram has traveled, starting from the start of the track.
-locateCoordOnTrackLength :: Track -> GeoCoord -> Maybe Meter
+-- | This returns the distance a tram has traveled, starting from the start of the track, as a ratio of the overall track length. Shouldn't be less than 0 and greater than 1.0, but I'm not sure!
+locateCoordOnTrackLength :: Track -> GeoCoord -> Maybe Double
 locateCoordOnTrackLength track coord =
   let compareByDistance (_, a) (_, b) = compare (distance coord a) (distance coord b)
       compareByPosition (a, _) (b, _) = compare a b
+      overallTrackLength = fst $ P.last track
       -- The two trackpoints closest to coord, sorted by their position on the track.
       twoClosestTrackPoints =
         sortBy compareByPosition
@@ -211,7 +213,7 @@ locateCoordOnTrackLength track coord =
       (currentMark, firstPoint) = twoClosestTrackPoints !! 0
       (_, secondPoint) = twoClosestTrackPoints !! 1
    in case mapToTrack firstPoint secondPoint coord of
-        (Just v) -> Just $ currentMark + v
+        (Just v) -> Just $ (currentMark + v) / overallTrackLength
         Nothing -> Nothing
 
 -- | Put the current kilometre mark on the track. Needs a starting Meter, as it
@@ -228,7 +230,7 @@ svg content =
   doctype
     <> with
       (svg11_ content)
-      [Version_ <<- "1.1", Width_ <<- "3600mm", Height_ <<- "200mm", ViewBox_ <<- "0 0 200 200"]
+      [Version_ <<- "1.1", Width_ <<- "8640", Height_ <<- "200", ViewBox_ <<- "0 0 8640 200"]
 
 -- TODO: remove and replace with Graphics.Svg.Path.toText
 showR :: Double -> Text
@@ -255,7 +257,8 @@ tripToElement fx fy (tripId, (t, v) : tripData) = case (fy v) of
       [ D_ <<- (mA (fx t) y <> (tripToElement' fx fy tripData)),
         Stroke_ <<- "black",
         Fill_ <<- "none",
-        Stroke_width_ <<- "20"
+        Stroke_width_ <<- "1",
+        Id_ <<- ((<>) "trip" $ TS.pack $ show tripId)
       ]
   Nothing -> tripToElement fx fy (tripId, tripData)
 
@@ -278,17 +281,13 @@ lineToElement line =
           $ P.map (\(_, v) -> (latitude v, longitude v))
           $ sortBy compareTimeStamp
           -- letssss hope that trip IDs are unique in all trips ever gathered!
+          -- (Hint: they are not.)
           $ fromJust
           $ IntMap.lookup 53928 line
-      fx t = (*) 4.0 $ seconds $ localTimeOfDay t
-      fy v = locateCoordOnTrackLength track96 (latitude v, longitude v)
+      fx t = (*) 0.1 $ seconds $ localTimeOfDay t
+      fy v = fmap (200 *) $ locateCoordOnTrackLength track96 (latitude v, longitude v)
    in P.mconcat $ P.map (tripToElement fx fy) $ IntMap.toList line
 
--- | Generate the SVG Element that shows all the data points.
--- svgFromData :: [(LocalTime, Vehicle)] -> Element
--- svgFromData dataPoints =
---   let
---    in mconcat $ P.map xyToDot $ P.map (\(t, v) -> (t, (latitude v, longitude v))) dataPoints
 main :: IO ()
 main = do
   fileList <- listDirectory basePath
