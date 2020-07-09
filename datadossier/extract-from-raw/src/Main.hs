@@ -317,13 +317,25 @@ tripToElement ::
   (TripId, [(LocalTime, GeoCoord)]) ->
   Element
 tripToElement _ _ (_, []) = mempty
+-- For Trips with a single point we draw a circle instead of a path, as otherwise the path wouldn't be visible.
+tripToElement fx fy (_, (t, v) : []) = case (fy v) of
+  Just y ->
+    circle_
+      [ Cx_ <<- (toText $ fx t),
+        Cy_ <<- (toText y),
+        R_ <<- "0.5",
+        Stroke_ <<- "black",
+        Fill_ <<- "none"
+      ]
+  Nothing -> mempty
 tripToElement fx fy (tripId, (t, v) : tripData) = case (fy v) of
   Just y ->
     path_
       [ D_ <<- (mA (fx t) y <> (tripToElement' fx fy tripData)),
         Stroke_ <<- "black",
         Fill_ <<- "none",
-        Stroke_width_ <<- "1"
+        Stroke_width_ <<- "1",
+        Stroke_linecap_ <<- "round"
         -- Id_ <<- ((<>) "trip" $ TS.pack $ show tripId)
       ]
   Nothing -> tripToElement fx fy (tripId, tripData)
