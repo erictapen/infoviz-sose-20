@@ -82,7 +82,7 @@ In this project I wanted to try a way of visualizing train delays I'd thought ab
 
 ![](marey.jpg)
 
-But this is a schedule that doesn't show the data from actual train rides. What if it could show data from actual rides? This way one could observe delay characteristics of a certain ride (e.g. 6.31 in the morning on work days be looking at the sharpness of a line!
+But this is a schedule that doesn't show the data from actual train rides. What if it could show data from actual rides? This way one could observe delay characteristics of a certain ride (e.g. 6.31 in the morning on work days) by looking at the sharpness of the line!
 
 Here is an early example, showing the Tram line 96 on the 24th of June 2020.
 
