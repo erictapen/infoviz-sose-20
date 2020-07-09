@@ -118,11 +118,19 @@ instance ToJSON Vehicle where
       ]
 
 -- | All the data about one Tram connection, e.g. Line 96 from
--- Marie-Juchacz-Straße to Campus Jungfernsee. The key in the IntMap is the
--- trip id from raw data.
-type Line = IntMap [(LocalTime, Vehicle)]
+-- Marie-Juchacz-Straße to Campus Jungfernsee. The outer list contains the
+-- individual segments, that are drawn in the final graphic.
+data Line = Line Text [(TripId, [(LocalTime, GeoCoord)])]
 
--- | Filter function to grap specific datapoints, e.g. everything from one ride
+-- instance ToJSON Line where
+--   toJSON (Main.Line _ ds) = toJSON ds
+--
+-- instance FromJSON Line where
+--   parseJSON = withArray "Line" $ mapM parseJSON . (Main.Line "96")
+
+type TripId = Int
+
+-- | Filter function to grab specific datapoints, e.g. everything from one ride
 -- or one tram line.
 data Filter = Filter Text ((LocalTime, Vehicle) -> Bool)
 
@@ -157,32 +165,82 @@ getAllVehicles (f : fs) (Filter filterName vehicleFilter) = do
 
 -- | This is a proxy for getAllVehicles, but uses a cached JSON file in
 -- ./cache/ that is named after the used Filter.
-getAllVehiclesCached :: [FilePath] -> Filter -> IO Line
+getAllVehiclesCached :: [FilePath] -> Filter -> IO (ReferenceTrack, Line)
 getAllVehiclesCached fileList (Filter filterName vehicleFilter) =
   let cacheName = "./cache/" <> filterName <> ".json"
       cachePath = TS.unpack cacheName
+      -- Stupid conversion functions I needed to write in order to make JSON
+      -- serializaion possible.
+      fromCache :: (ReferenceTrack, [(TripId, [(LocalTime, GeoCoord)])]) -> (ReferenceTrack, Line)
+      fromCache (r, ds) = (r, (Main.Line "96" ds))
+      toCache :: (ReferenceTrack, Line) -> (ReferenceTrack, [(TripId, [(LocalTime, GeoCoord)])])
+      toCache (r, (Main.Line _ ds)) = (r, ds)
    in do
         fileExists <- doesFileExist cachePath
         if fileExists
           then do
             TSIO.putStrLn $ "Cache hit: " <> cacheName
             cacheContent <- BL.readFile cachePath
-            return $ fromJust $ Aeson.decode cacheContent
+            return $ fromCache $ fromJust $ Aeson.decode cacheContent
           else do
             TSIO.putStrLn $ "Cache miss: " <> cacheName
             rawRes <- getAllVehicles fileList (Filter filterName vehicleFilter)
-            let res = transformVehicles rawRes
+            let res = (track96 rawRes, transformVehicles rawRes)
              in do
-                  BL.writeFile cachePath $ Aeson.encode res
+                  BL.writeFile cachePath $ Aeson.encode $ toCache res
                   return res
 
-compareTimeStamp :: (LocalTime, Vehicle) -> (LocalTime, Vehicle) -> Ordering
+compareTimeStamp :: (LocalTime, GeoCoord) -> (LocalTime, GeoCoord) -> Ordering
 compareTimeStamp a b = compare (fst a) (fst b)
 
+splitPredicate :: (LocalTime, GeoCoord) -> (LocalTime, GeoCoord) -> Bool
+splitPredicate (t1, p1) (t2, p2) = distance p1 p2 > 500
+
+-- | Example:
+-- splitTrip [(parseTime' "2020-07-09 12:00:05", (13.068, 52.383)), (parseTime' "2020-07-09 12:00:10", (13.053, 52.402))]
+splitTrip :: [(LocalTime, GeoCoord)] -> [[(LocalTime, GeoCoord)]]
+splitTrip [] = []
+splitTrip ds =
+  let seg = splitTrip' ds
+   in (seg : (splitTrip $ P.drop (P.length seg) ds))
+
+splitTrip' :: [(LocalTime, GeoCoord)] -> [(LocalTime, GeoCoord)]
+splitTrip' [] = []
+splitTrip' (a : []) = a : []
+splitTrip' (a : b : ds) =
+  if splitPredicate a b
+    then (a : [])
+    else (a : (splitTrip' (b : ds)))
+
+-- | A lot of logic happens here, as the raw data is in no good shape for our use case. We work on all the data points belonging to a tram line and partition them into ordered segments, which correspond to uninterrupted paths in the final graphic. This partitioning is non-triveal, as the following conditions must be true:
+-- - Every path contains only data points of one tripId.
+-- - There can be multiple paths with the same tripId.
+-- - The data points in each path are sorted by time.
+-- - No path has a gap, where the points are more than a certain time/geodistance apart.
 transformVehicles :: [(LocalTime, Vehicle)] -> Line
 transformVehicles vehicles =
-  let mapWithUnorderedLists = fromListWith (++) $ P.map (\(t, v) -> (trip v, [(t, v)])) vehicles
-   in IntMap.map (sortBy compareTimeStamp) mapWithUnorderedLists
+  let -- Bring the data into a structure where we can access TripId more
+      -- easily.
+      transformDatapoint :: (LocalTime, Vehicle) -> (TripId, [(LocalTime, GeoCoord)])
+      transformDatapoint (t, v) = (trip v, [(t, (latitude v, longitude v))])
+      -- Every "bucket" belongs to exactly one TripId. The datapoints in the
+      -- buckets are sorted.
+      mapByTripId :: [(TripId, [(LocalTime, GeoCoord)])]
+      mapByTripId =
+        toList
+          $ IntMap.map (sortBy compareTimeStamp)
+          $ fromListWith (++)
+          $ P.map transformDatapoint vehicles
+      -- Split the "trips" along a splitPredicate. Whenever splitPredicate is
+      -- true for two data points, they should not be connected in the final
+      -- result.
+      splitTrips :: [(TripId, [(LocalTime, GeoCoord)])] -> [(TripId, [(LocalTime, GeoCoord)])]
+      splitTrips [] = []
+      splitTrips ((tripId, ds) : trips) =
+        let splitted :: [(TripId, [(LocalTime, GeoCoord)])]
+            splitted = P.map (\ds' -> (tripId, ds')) $ splitTrip ds
+         in splitted ++ splitTrips trips
+   in Main.Line "96" $ splitTrips mapByTripId
 
 -- | Fahrt von Marie-Juchacz-Str nach Campus Jungfernsee, 2020-06-24 12:11 bis 12:52
 filter96Track :: Filter
@@ -195,12 +253,12 @@ filter96Track = Filter "filter96Track" $ \(t, v) ->
 filter96 :: Filter
 filter96 = Filter "filter96" $ \(_, v) -> tramId v == "96"
 
-type Track = [(Meter, GeoCoord)]
+type ReferenceTrack = [(Meter, GeoCoord)]
 
 type Meter = Double
 
 -- | This returns the distance a tram has traveled, starting from the start of the track, as a ratio of the overall track length. Shouldn't be less than 0 and greater than 1.0, but I'm not sure!
-locateCoordOnTrackLength :: Track -> GeoCoord -> Maybe Double
+locateCoordOnTrackLength :: ReferenceTrack -> GeoCoord -> Maybe Double
 locateCoordOnTrackLength track coord =
   let compareByDistance (_, a) (_, b) = compare (distance coord a) (distance coord b)
       compareByPosition (a, _) (b, _) = compare a b
@@ -218,7 +276,7 @@ locateCoordOnTrackLength track coord =
 
 -- | Put the current kilometre mark on the track. Needs a starting Meter, as it
 -- operates recursviely.
-enrichTrackWithLength :: Meter -> [GeoCoord] -> Track
+enrichTrackWithLength :: Meter -> [GeoCoord] -> ReferenceTrack
 enrichTrackWithLength m (x : []) = (m, x) : []
 enrichTrackWithLength m (x : next : xs) =
   let cursor = 0
@@ -241,12 +299,22 @@ seconds (TimeOfDay h m s) =
       -- Yeah… Seriously. That's how I get the seconds out of a TimeOfDay.
       + div (fromEnum s) 1000000000000
 
+-- track96 is the list of coordinates on Track 96, sorted from MJ-Str to Campus Jungfernsee.
+track96 :: [(LocalTime, Vehicle)] -> ReferenceTrack
+track96 vehicles =
+  enrichTrackWithLength 0
+    $ P.map (\(_, v) -> (latitude v, longitude v))
+    $ sortBy (\a -> \b -> compare (fst a) (fst b))
+    -- letssss hope that trip IDs are unique in all trips ever gathered!
+    -- (Hint: they are not.)
+    $ P.filter ((\(Filter _ f) -> f) filter96Track) vehicles
+
 -- | Transforms a [(LocalTime -> Double)] and two placement functions fx, fy to
 -- an SVG Element. Recursively calls tripToElement'.
 tripToElement ::
   (LocalTime -> Double) ->
-  (Vehicle -> Maybe Double) ->
-  (Int, [(LocalTime, Vehicle)]) ->
+  (GeoCoord -> Maybe Double) ->
+  (TripId, [(LocalTime, GeoCoord)]) ->
   Element
 tripToElement _ _ (_, []) = mempty
 tripToElement fx fy (tripId, (t, v) : tripData) = case (fy v) of
@@ -255,16 +323,16 @@ tripToElement fx fy (tripId, (t, v) : tripData) = case (fy v) of
       [ D_ <<- (mA (fx t) y <> (tripToElement' fx fy tripData)),
         Stroke_ <<- "black",
         Fill_ <<- "none",
-        Stroke_width_ <<- "1",
-        Id_ <<- ((<>) "trip" $ TS.pack $ show tripId)
+        Stroke_width_ <<- "1"
+        -- Id_ <<- ((<>) "trip" $ TS.pack $ show tripId)
       ]
   Nothing -> tripToElement fx fy (tripId, tripData)
 
 -- | Recursively generate the tail of the path elements.
 tripToElement' ::
   (LocalTime -> Double) ->
-  (Vehicle -> Maybe Double) ->
-  [(LocalTime, Vehicle)] ->
+  (GeoCoord -> Maybe Double) ->
+  [(LocalTime, GeoCoord)] ->
   Text
 tripToElement' _ _ [] = ""
 tripToElement' fx fy ((t, v) : ds) = case (fy v) of
@@ -272,28 +340,18 @@ tripToElement' fx fy ((t, v) : ds) = case (fy v) of
   Nothing -> tripToElement' fx fy ds
 
 -- | Transforms a Line to an SVG ELement.
-lineToElement :: Line -> Element
-lineToElement line =
-  let -- track96 is the list of coordinates on Track 96, sorted from MJ-Str to Campus Jungfernsee.
-      track96 :: Track
-      track96 =
-        enrichTrackWithLength 0
-          $ P.map (\(_, v) -> (latitude v, longitude v))
-          $ sortBy compareTimeStamp
-          -- letssss hope that trip IDs are unique in all trips ever gathered!
-          -- (Hint: they are not.)
-          $ fromJust
-          $ IntMap.lookup 53928 line
-      fx t = (*) 0.1 $ seconds $ localTimeOfDay t
-      fy v = fmap (200 *) $ locateCoordOnTrackLength track96 (latitude v, longitude v)
+lineToElement :: ReferenceTrack -> Line -> Element
+lineToElement referenceTrack (Main.Line label trips) =
+  let fx t = (*) 0.1 $ seconds $ localTimeOfDay t
+      fy v = fmap (200 *) $ locateCoordOnTrackLength referenceTrack v
    in g_ []
         $ P.mconcat
         $ P.map (tripToElement fx fy)
-        $ IntMap.toList line
+        $ trips
 
 main :: IO ()
 main = do
   fileList <- listDirectory basePath
-  vehicles <- getAllVehiclesCached fileList $ filter96Track <> filter96
+  (referenceTrack, trips) <- getAllVehiclesCached fileList $ filter96Track <> filter96
   print "fertig"
-  P.writeFile "96.svg" $ show $ svg $ lineToElement vehicles
+  P.writeFile "96.svg" $ show $ svg $ lineToElement referenceTrack trips
