@@ -1,4 +1,4 @@
-# Information Visualization by Marian Dörk
+# Information Visualization with Marian Dörk
 
 This repository documents the results of the course *Information Visualization* by [Marian Dörk](https://mariandoerk.de/) at [FH Potsdam](https://www.fh-potsdam.de/) in the summer semester of 2020.
 
