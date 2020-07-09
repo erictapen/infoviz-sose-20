@@ -193,8 +193,10 @@ getAllVehiclesCached fileList (Filter filterName vehicleFilter) =
 compareTimeStamp :: (LocalTime, GeoCoord) -> (LocalTime, GeoCoord) -> Ordering
 compareTimeStamp a b = compare (fst a) (fst b)
 
+-- | Split when the points are more than 277m apart, the distance a Tram at
+-- 100km/h travels in 10s.
 splitPredicate :: (LocalTime, GeoCoord) -> (LocalTime, GeoCoord) -> Bool
-splitPredicate (t1, p1) (t2, p2) = distance p1 p2 > 500
+splitPredicate (t1, p1) (t2, p2) = distance p1 p2 > 277
 
 -- | Example:
 -- splitTrip [(parseTime' "2020-07-09 12:00:05", (13.068, 52.383)), (parseTime' "2020-07-09 12:00:10", (13.053, 52.402))]
