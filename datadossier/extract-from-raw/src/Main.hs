@@ -3,6 +3,7 @@
 
 import Codec.Compression.GZip as GZ
 import Control.Monad.IO.Class
+import Control.Monad.Trans.Resource
 import Data.Aeson as Aeson
 import Data.ByteString as BS
 import Data.ByteString.Builder
@@ -22,6 +23,10 @@ import Data.Text.Lazy.Encoding as TLE
 import Data.Time.LocalTime
 import Graphics.Svg
 import Numeric (showHex)
+import Streaming
+import Streaming.Osm
+import Streaming.Osm.Types
+import Streaming.Prelude as S
 import System.Directory
 import System.IO
 import Prelude as P
@@ -229,7 +234,7 @@ transformVehicles vehicles =
       -- buckets are sorted.
       mapByTripId :: [(TripId, [(LocalTime, GeoCoord)])]
       mapByTripId =
-        toList
+        IntMap.toList
           $ IntMap.map (sortBy compareTimeStamp)
           $ fromListWith (++)
           $ P.map transformDatapoint vehicles
@@ -288,7 +293,7 @@ enrichTrackWithLength m (x : next : xs) =
 svg :: Element -> Element
 svg content =
   doctype
-    <> with
+    <> Graphics.Svg.with
       (svg11_ content)
       [Version_ <<- "1.1", Width_ <<- "8640", Height_ <<- "200", ViewBox_ <<- "0 0 8640 200"]
 
@@ -338,7 +343,7 @@ tripToElement fx fy (tripId, (t, v) : tripData) = case (fy v) of
         Fill_ <<- "none",
         Stroke_width_ <<- "1",
         Stroke_linecap_ <<- "round"
-        -- Id_ <<- ((<>) "trip" $ TS.pack $ show tripId)
+        -- Id_ <<- ((<>) "trip" $ TS.pack $ P.show tripId)
       ]
   Nothing -> tripToElement fx fy (tripId, tripData)
 
@@ -363,9 +368,56 @@ lineToElement referenceTrack (Main.Line label trips) =
         $ P.map (tripToElement fx fy)
         $ trips
 
+extractReferenceTrackCached :: IO [ReferenceTrack]
+extractReferenceTrackCached =
+  let -- dataPath = "raw/brandenburg-latest.osm.pbf"
+      dataPath = "raw/test.osm.pbf"
+      cachePath = "cache/reference-tracks.json"
+      filterRelations :: Relation -> Bool
+      filterRelations (Relation {_rinfo = Nothing}) = False
+      filterRelations (Relation {_rinfo = Just (Info {_id = relationId})}) = relationId == 178663 -- Tram96
+      osmToRefTrack :: Relation -> ReferenceTrack
+      osmToRefTrack _ = [] -- TODO
+   in do
+        fileExists <- doesFileExist cachePath
+        if fileExists
+          then do
+            TSIO.putStrLn $ "Cache hit: " <> TS.pack cachePath
+            cacheContent <- BL.readFile cachePath
+            return $ fromJust $ Aeson.decode cacheContent
+          else do
+            TSIO.putStrLn $ "Cache miss: " <> TS.pack cachePath
+            osmRelations <- runResourceT . toList_ . S.filter filterRelations $ relations . blocks $ blobs dataPath
+            TSIO.putStrLn $ TS.pack $ P.show osmRelations
+            let referenceTracks = P.map osmToRefTrack osmRelations
+             in do
+                  -- BL.writeFile cachePath $ Aeson.encode referenceTracks
+                  return referenceTracks
+
+-- | Show a line as an CSV table, just a helper function I'll not use often.
+printCSV :: Line -> String
+printCSV (Main.Line _ trips) =
+  Data.List.Utils.join "\n"
+    $ P.concat
+    $ P.map
+      ( \(tripId, ds) ->
+          P.map
+            ( \(t, c) ->
+                (P.show tripId)
+                  ++ ","
+                  ++ (P.show t)
+                  ++ ","
+                  ++ (P.show $ fst c)
+                  ++ ","
+                  ++ (P.show $ snd c)
+            )
+            ds
+      )
+      trips
+
 main :: IO ()
 main = do
   fileList <- listDirectory basePath
   (referenceTrack, trips) <- getAllVehiclesCached fileList $ filter96Track <> filter96
-  print "fertig"
-  P.writeFile "96.svg" $ show $ svg $ lineToElement referenceTrack trips
+  P.print "fertig"
+  P.writeFile "96.svg" $ P.show $ svg $ lineToElement referenceTrack trips
