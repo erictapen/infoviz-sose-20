@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -21,6 +22,7 @@ import Data.Text.Encoding as TSE
 import Data.Text.IO as TSIO
 import Data.Text.Lazy.Encoding as TLE
 import Data.Time.LocalTime
+import GHC.Generics
 import Graphics.Svg
 import Numeric (showHex)
 import Streaming
@@ -127,12 +129,6 @@ instance ToJSON Vehicle where
 -- individual segments, that are drawn in the final graphic.
 data Line = Line Text [(TripId, [(LocalTime, GeoCoord)])]
 
--- instance ToJSON Line where
---   toJSON (Main.Line _ ds) = toJSON ds
---
--- instance FromJSON Line where
---   parseJSON = withArray "Line" $ mapM parseJSON . (Main.Line "96")
-
 type TripId = Int
 
 -- | Filter function to grab specific datapoints, e.g. everything from one ride
@@ -170,16 +166,16 @@ getAllVehicles (f : fs) (Filter filterName vehicleFilter) = do
 
 -- | This is a proxy for getAllVehicles, but uses a cached JSON file in
 -- ./cache/ that is named after the used Filter.
-getAllVehiclesCached :: [FilePath] -> Filter -> IO (ReferenceTrack, Line)
+getAllVehiclesCached :: [FilePath] -> Filter -> IO Line
 getAllVehiclesCached fileList (Filter filterName vehicleFilter) =
   let cacheName = "./cache/" <> filterName <> ".json"
       cachePath = TS.unpack cacheName
       -- Stupid conversion functions I needed to write in order to make JSON
       -- serializaion possible.
-      fromCache :: (ReferenceTrack, [(TripId, [(LocalTime, GeoCoord)])]) -> (ReferenceTrack, Line)
-      fromCache (r, ds) = (r, (Main.Line "96" ds))
-      toCache :: (ReferenceTrack, Line) -> (ReferenceTrack, [(TripId, [(LocalTime, GeoCoord)])])
-      toCache (r, (Main.Line _ ds)) = (r, ds)
+      fromCache :: [(TripId, [(LocalTime, GeoCoord)])] -> Line
+      fromCache ds = Main.Line "96" ds
+      toCache :: Line -> [(TripId, [(LocalTime, GeoCoord)])]
+      toCache (Main.Line _ ds) = ds
    in do
         fileExists <- doesFileExist cachePath
         if fileExists
@@ -190,7 +186,7 @@ getAllVehiclesCached fileList (Filter filterName vehicleFilter) =
           else do
             TSIO.putStrLn $ "Cache miss: " <> cacheName
             rawRes <- getAllVehicles fileList (Filter filterName vehicleFilter)
-            let res = (track96 rawRes, transformVehicles rawRes)
+            let res = transformVehicles rawRes
              in do
                   BL.writeFile cachePath $ Aeson.encode $ toCache res
                   return res
@@ -249,18 +245,26 @@ transformVehicles vehicles =
          in splitted ++ splitTrips trips
    in Main.Line "96" $ splitTrips mapByTripId
 
--- | Fahrt von Marie-Juchacz-Str nach Campus Jungfernsee, 2020-06-24 12:11 bis 12:52
-filter96Track :: Filter
-filter96Track = Filter "filter96Track" $ \(t, v) ->
-  trip v == 53928
-    && t >= parseTime' "2020-06-24 12:11:28" -- Marie-Juchacz-Str
-    && t <= parseTime' "2020-06-24 12:48:43" -- Rote Kaserne
-
 -- | All data points for Tram 96, in both directions.
 filter96 :: Filter
 filter96 = Filter "filter96" $ \(_, v) -> tramId v == "96"
 
 type ReferenceTrack = [(Meter, GeoCoord)]
+
+data ReferenceTrackJson
+  = ReferenceTrackJson
+      { label :: Text,
+        coordinates :: [GeoCoord],
+        stations :: [(Text, GeoCoord)]
+      }
+  deriving (Generic, Show)
+
+instance FromJSON ReferenceTrackJson
+
+readReferenceTrackFromFile :: IO ReferenceTrack
+readReferenceTrackFromFile = do
+  fileContent <- BL.readFile "./cache/96.json"
+  return $ enrichTrackWithLength 0 $ coordinates $ fromJust $ Aeson.decode fileContent
 
 type Meter = Double
 
@@ -305,16 +309,6 @@ seconds (TimeOfDay h m s) =
       + 60 * m
       -- Yeah… Seriously. That's how I get the seconds out of a TimeOfDay.
       + div (fromEnum s) 1000000000000
-
--- track96 is the list of coordinates on Track 96, sorted from MJ-Str to Campus Jungfernsee.
-track96 :: [(LocalTime, Vehicle)] -> ReferenceTrack
-track96 vehicles =
-  enrichTrackWithLength 0
-    $ P.map (\(_, v) -> (latitude v, longitude v))
-    $ sortBy (\a -> \b -> compare (fst a) (fst b))
-    -- letssss hope that trip IDs are unique in all trips ever gathered!
-    -- (Hint: they are not.)
-    $ P.filter ((\(Filter _ f) -> f) filter96Track) vehicles
 
 -- | Transforms a [(LocalTime -> Double)] and two placement functions fx, fy to
 -- an SVG Element. Recursively calls tripToElement'.
@@ -368,6 +362,8 @@ lineToElement referenceTrack (Main.Line label trips) =
         $ P.map (tripToElement fx fy)
         $ trips
 
+-- | This code is never used, but maybe when
+-- https://github.com/fosskers/streaming-osm/issues/3 is resolved?
 extractReferenceTrackCached :: IO [ReferenceTrack]
 extractReferenceTrackCached =
   let dataPath = "raw/brandenburg-latest.osm.pbf"
@@ -417,6 +413,7 @@ printCSV (Main.Line _ trips) =
 main :: IO ()
 main = do
   fileList <- listDirectory basePath
-  (referenceTrack, trips) <- getAllVehiclesCached fileList $ filter96Track <> filter96
+  trips <- getAllVehiclesCached fileList $ filter96
+  referenceTrack <- readReferenceTrackFromFile
   P.print "fertig"
   P.writeFile "96.svg" $ P.show $ svg $ lineToElement referenceTrack trips
