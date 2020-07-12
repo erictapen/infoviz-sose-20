@@ -12,6 +12,7 @@ pkgs.mkShell {
           MissingH
           hcoord
           svg-builder
+          streaming-osm
         ]
       )
     )

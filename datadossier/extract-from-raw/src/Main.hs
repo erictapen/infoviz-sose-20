@@ -370,8 +370,7 @@ lineToElement referenceTrack (Main.Line label trips) =
 
 extractReferenceTrackCached :: IO [ReferenceTrack]
 extractReferenceTrackCached =
-  let -- dataPath = "raw/brandenburg-latest.osm.pbf"
-      dataPath = "raw/test.osm.pbf"
+  let dataPath = "raw/brandenburg-latest.osm.pbf"
       cachePath = "cache/reference-tracks.json"
       filterRelations :: Relation -> Bool
       filterRelations (Relation {_rinfo = Nothing}) = False
