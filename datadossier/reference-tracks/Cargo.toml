@@ -10,3 +10,4 @@ edition = "2018"
 osmpbfreader = "*"
 serde_json = "*"
 serde = { version = "*", features = ["derive"] }
+geo = "*"

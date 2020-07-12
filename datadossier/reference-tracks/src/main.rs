@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate serde;
 
+use geo::prelude::*;
+use geo::{point, Point};
 use osmpbfreader::objects::{Ref, RelationId, WayId};
 use osmpbfreader::{OsmId, OsmObj, Relation, Way};
 use std::fs::File;
@@ -24,7 +26,7 @@ fn main() {
         })
         .unwrap();
     println!("Filtered {} OsmObj.", objects.len());
-    let coordinates: Vec<(f64, f64)> = {
+    let mut coordinates: Vec<(f64, f64)> = {
         let mut res = Vec::new();
         if let OsmObj::Relation(relation) = objects.get(&track_id).unwrap() {
             for reference in &relation.refs {
@@ -54,9 +56,33 @@ fn main() {
         res
     };
     {
+        let mut sorted_coords: Vec<(f64, f64)> = Vec::new();
+        let (mut cursor_lat, mut cursor_lon): (f64, f64) = coordinates.pop().unwrap();
+        while !coordinates.is_empty() {
+            let mut shortest_dist: (f64, usize) = (f64::MAX, 0);
+            let mut cursor_point: Point<f64> = point!(x: cursor_lon, y: cursor_lat);
+            for i in 0..coordinates.len() {
+                let (lat, lon): (f64, f64) = *coordinates.get(i).unwrap();
+                let dist: f64 = cursor_point.geodesic_distance(&point!(x: lon, y: lat));
+                if shortest_dist.0 > dist {
+                    shortest_dist = (dist, i);
+                    cursor_lat = lat;
+                    cursor_lon = lon;
+                }
+            }
+            if shortest_dist.0 < f64::MAX {
+                println!("shortest dist: {}", shortest_dist.0);
+                sorted_coords.push((cursor_lat, cursor_lon));
+                coordinates.remove(shortest_dist.1);
+            } else {
+                break;
+            }
+        }
         let mut file = File::create("track.csv").unwrap();
-        for coord in &coordinates {
-            file.write_all(format!("{}, {}\n", coord.0, coord.1).as_bytes())
+        let mut counter: usize = 0;
+        for (lat, lon) in &sorted_coords {
+            counter += 1;
+            file.write_all(format!("{}, {}, {}\n", lat, lon, counter).as_bytes())
                 .unwrap();
         }
     }
