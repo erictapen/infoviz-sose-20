@@ -336,8 +336,8 @@ tripToElement fx fy (tripId, (t, v) : tripData) = case (fy v) of
         Stroke_ <<- "black",
         Fill_ <<- "none",
         Stroke_width_ <<- "1",
-        Stroke_linecap_ <<- "round"
-        -- Id_ <<- ((<>) "trip" $ TS.pack $ P.show tripId)
+        Stroke_linecap_ <<- "round",
+        Id_ <<- ((<>) "trip" $ TS.pack $ P.show tripId)
       ]
   Nothing -> tripToElement fx fy (tripId, tripData)
 
@@ -392,7 +392,8 @@ extractReferenceTrackCached =
 -- | Show a line as an CSV table, just a helper function I'll not use often.
 printCSV :: Line -> String
 printCSV (Main.Line _ trips) =
-  Data.List.Utils.join "\n"
+  (++) "id, time, lat, lon\n"
+    $ Data.List.Utils.join "\n"
     $ P.concat
     $ P.map
       ( \(tripId, ds) ->
@@ -415,5 +416,7 @@ main = do
   fileList <- listDirectory basePath
   trips <- getAllVehiclesCached fileList $ filter96
   referenceTrack <- readReferenceTrackFromFile
+  P.print "writing csv"
+  P.writeFile "96.csv" $ printCSV trips
   P.print "fertig"
   P.writeFile "96.svg" $ P.show $ svg $ lineToElement referenceTrack trips
