@@ -3,14 +3,9 @@
 {-# LANGUAGE RecordWildCards #-}
 
 import Codec.Compression.GZip as GZ
-import Control.Monad.IO.Class
 import Control.Monad.Trans.Resource
 import Data.Aeson as Aeson
-import Data.ByteString as BS
-import Data.ByteString.Builder
 import Data.ByteString.Lazy as BL
-import Data.ByteString.Lazy.UTF8 as BLU
-import Data.ByteString.UTF8 as BSU
 import Data.Functor
 import Data.Geospatial
 import Data.IntMap.Strict as IntMap
@@ -18,14 +13,10 @@ import Data.List
 import Data.List.Utils
 import Data.Maybe
 import Data.Text as TS
-import Data.Text.Encoding as TSE
 import Data.Text.IO as TSIO
-import Data.Text.Lazy.Encoding as TLE
 import Data.Time.LocalTime
 import GHC.Generics
 import Graphics.Svg
-import Numeric (showHex)
-import Streaming
 import Streaming.Osm
 import Streaming.Osm.Types
 import Streaming.Prelude as S
@@ -197,7 +188,7 @@ compareTimeStamp a b = compare (fst a) (fst b)
 -- | Split when the points are more than 277m apart, the distance a Tram at
 -- 100km/h travels in 10s.
 splitPredicate :: (LocalTime, GeoCoord) -> (LocalTime, GeoCoord) -> Bool
-splitPredicate (t1, p1) (t2, p2) = distance p1 p2 > 277
+splitPredicate (_, p1) (_, p2) = distance p1 p2 > 277
 
 -- | Example:
 -- splitTrip [(parseTime' "2020-07-09 12:00:05", (13.068, 52.383)), (parseTime' "2020-07-09 12:00:10", (13.053, 52.402))]
@@ -288,10 +279,10 @@ locateCoordOnTrackLength track coord =
 -- | Put the current kilometre mark on the track. Needs a starting Meter, as it
 -- operates recursviely.
 enrichTrackWithLength :: Meter -> [GeoCoord] -> ReferenceTrack
+enrichTrackWithLength _ [] = []
 enrichTrackWithLength m (x : []) = (m, x) : []
 enrichTrackWithLength m (x : next : xs) =
-  let cursor = 0
-   in (m, x) : (enrichTrackWithLength (m + distance x next) (next : xs))
+  (m, x) : (enrichTrackWithLength (m + distance x next) (next : xs))
 
 -- document root
 svg :: Element -> Element
@@ -354,7 +345,7 @@ tripToElement' fx fy ((t, v) : ds) = case (fy v) of
 
 -- | Transforms a Line to an SVG ELement.
 lineToElement :: ReferenceTrack -> Line -> Element
-lineToElement referenceTrack (Main.Line label trips) =
+lineToElement referenceTrack (Main.Line _ trips) =
   let fx t = (*) 0.1 $ seconds $ localTimeOfDay t
       fy v = fmap (200 *) $ locateCoordOnTrackLength referenceTrack v
    in g_ []
@@ -416,7 +407,7 @@ main = do
   fileList <- listDirectory basePath
   trips <- getAllVehiclesCached fileList $ filter96
   referenceTrack <- readReferenceTrackFromFile
-  P.print "writing csv"
+  P.putStrLn "writing csv"
   P.writeFile "96.csv" $ printCSV trips
-  P.print "fertig"
+  P.putStrLn "fertig"
   P.writeFile "96.svg" $ P.show $ svg $ lineToElement referenceTrack trips
