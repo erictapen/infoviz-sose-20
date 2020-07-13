@@ -26,7 +26,10 @@ import Prelude as P
 
 -- TODO remove, we want to read all the files
 basePath :: FilePath
-basePath = "./raw/2020-06-24/"
+basePath = "./raw/" <> dayData <> "/"
+
+dayData :: String
+dayData = "2020-07-09"
 
 -- | Earth radius in meters
 earthRadius :: Double
@@ -159,7 +162,7 @@ getAllVehicles (f : fs) (Filter filterName vehicleFilter) = do
 -- ./cache/ that is named after the used Filter.
 getAllVehiclesCached :: [FilePath] -> Filter -> IO Line
 getAllVehiclesCached fileList (Filter filterName vehicleFilter) =
-  let cacheName = "./cache/" <> filterName <> ".json"
+  let cacheName = "./cache/" <> (TS.pack dayData) <> "-" <> filterName <> ".json"
       cachePath = TS.unpack cacheName
       -- Stupid conversion functions I needed to write in order to make JSON
       -- serializaion possible.
@@ -316,8 +319,8 @@ tripToElement fx fy (_, (t, v) : []) = case (fy v) of
       [ Cx_ <<- (toText $ fx t),
         Cy_ <<- (toText y),
         R_ <<- "0.5",
-        Stroke_ <<- "black",
-        Fill_ <<- "none"
+        Stroke_ <<- "none",
+        Fill_ <<- "black"
       ]
   Nothing -> mempty
 tripToElement fx fy (tripId, (t, v) : tripData) = case (fy v) of
@@ -410,4 +413,4 @@ main = do
   P.putStrLn "writing csv"
   P.writeFile "96.csv" $ printCSV trips
   P.putStrLn "fertig"
-  P.writeFile "96.svg" $ P.show $ svg $ lineToElement referenceTrack trips
+  P.writeFile (dayData <> "-96.svg") $ P.show $ svg $ lineToElement referenceTrack trips
