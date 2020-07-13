@@ -61,12 +61,12 @@ fn main() {
         let (mut cursor_lat, mut cursor_lon): (f64, f64) = coordinates.pop().unwrap();
         while !coordinates.is_empty() {
             let mut shortest_dist: (f64, usize) = (f64::MAX, 0);
+            let cursor_point = Point::new(cursor_lon, cursor_lat);
             // Look at every remaining point and get the index with the smallest distance to
             // cursor.
             for i in 0..coordinates.len() {
                 let (lat, lon): (f64, f64) = *coordinates.get(i).unwrap();
-                let dist: f64 =
-                    Point::new(cursor_lon, cursor_lat).geodesic_distance(&Point::new(lon, lat));
+                let dist: f64 = cursor_point.geodesic_distance(&Point::new(lon, lat));
                 if shortest_dist.0 > dist {
                     shortest_dist = (dist, i);
                     cursor_lat = lat;
