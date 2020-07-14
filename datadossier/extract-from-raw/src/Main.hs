@@ -24,13 +24,6 @@ import System.Directory
 import System.IO
 import Prelude as P
 
--- TODO remove, we want to read all the files
-basePath :: FilePath
-basePath = "./raw/" <> dayData <> "/"
-
-dayData :: String
-dayData = "2020-07-09"
-
 -- | Earth radius in meters
 earthRadius :: Double
 earthRadius = 6371000
@@ -85,7 +78,9 @@ mapToTrack a b c =
 -- encode it to a JSON string and then decode it, as Aeson can parse a
 -- LocalTime from String and I couldn't find any other method to do that...
 parseTime' :: String -> LocalTime
-parseTime' str = fromJust $ Aeson.decode $ Aeson.encode str
+parseTime' str = case (Aeson.eitherDecode $ Aeson.encode str) of
+  (Right res) -> res
+  (Left res) -> error $ "Couldn't deserialise date " <> str
 
 -- | The deserialization of the per vehicle object from the HAFAS JSON.
 -- Unfortunately we can't really store the timestamp in the structure, as it is
@@ -139,9 +134,11 @@ instance Semigroup Filter where
 -- result of one HAFAS API request. We do not filter here.
 getVehicles :: FilePath -> IO [(LocalTime, Vehicle)]
 getVehicles path =
-  let timeStamp = parseTime' $ P.take 19 path
+  -- ./raw/2020-07-08/2020-07-08T16:05:14+02:00.json.gz
+  -- We want this:    ^^^^^^^^^^^^^^^^^^^
+  let timeStamp = parseTime' $ P.take 19 $ P.drop 17 path
    in do
-        gzippedContent <- BL.readFile $ basePath ++ path
+        gzippedContent <- BL.readFile path
         case (Aeson.eitherDecode $ GZ.decompress gzippedContent) of
           (Right res) -> do
             return $ P.zip (P.repeat timeStamp) res
@@ -151,39 +148,48 @@ getVehicles path =
 
 -- | Read a list of .json.gz files in, decode them and filter them using Filter
 -- functions.
-getAllVehicles :: [FilePath] -> Filter -> IO [(LocalTime, Vehicle)]
-getAllVehicles [] _ = return []
-getAllVehicles (f : fs) (Filter filterName vehicleFilter) = do
-  vehicles <- getVehicles f
-  nextVehicles <- getAllVehicles fs $ Filter filterName vehicleFilter
+getAllVehicles :: FilePath -> [FilePath] -> Filter -> IO [(LocalTime, Vehicle)]
+getAllVehicles _ [] _ = return []
+getAllVehicles basePath (f : fs) (Filter filterName vehicleFilter) = do
+  vehicles <- getVehicles $ basePath <> f
+  nextVehicles <- getAllVehicles basePath fs $ Filter filterName vehicleFilter
   return $ (P.filter vehicleFilter vehicles) ++ nextVehicles
 
 -- | This is a proxy for getAllVehicles, but uses a cached JSON file in
 -- ./cache/ that is named after the used Filter.
-getAllVehiclesCached :: [FilePath] -> Filter -> IO Line
-getAllVehiclesCached fileList (Filter filterName vehicleFilter) =
-  let cacheName = "./cache/" <> (TS.pack dayData) <> "-" <> filterName <> ".json"
+getAllVehiclesCached :: [String] -> Filter -> IO [Line]
+getAllVehiclesCached [] _ = return []
+getAllVehiclesCached (day : days) (Filter filterName vehicleFilter) =
+  let cacheName = "./cache/" <> (TS.pack day) <> "-" <> filterName <> ".json"
       cachePath = TS.unpack cacheName
+      basePath = "./raw/" <> day <> "/"
       -- Stupid conversion functions I needed to write in order to make JSON
-      -- serializaion possible.
+      -- serialization possible.
       fromCache :: [(TripId, [(LocalTime, GeoCoord)])] -> Line
       fromCache ds = Main.Line "96" ds
       toCache :: Line -> [(TripId, [(LocalTime, GeoCoord)])]
       toCache (Main.Line _ ds) = ds
    in do
         fileExists <- doesFileExist cachePath
+        nextLine <- getAllVehiclesCached days (Filter filterName vehicleFilter)
         if fileExists
           then do
             TSIO.putStrLn $ "Cache hit: " <> cacheName
             cacheContent <- BL.readFile cachePath
-            return $ fromCache $ fromJust $ Aeson.decode cacheContent
+            case (Aeson.eitherDecode cacheContent) of
+              (Right res) -> do
+                return $ (fromCache $ res) : nextLine
+              (Left err) -> do
+                System.IO.hPutStrLn stderr $ "Can't read from cache " <> cachePath <> ": " <> err
+                return []
           else do
             TSIO.putStrLn $ "Cache miss: " <> cacheName
-            rawRes <- getAllVehicles fileList (Filter filterName vehicleFilter)
+            fileList <- listDirectory basePath
+            rawRes <- getAllVehicles basePath fileList (Filter filterName vehicleFilter)
             let res = transformVehicles rawRes
              in do
                   BL.writeFile cachePath $ Aeson.encode $ toCache res
-                  return res
+                  return $ res : nextLine
 
 compareTimeStamp :: (LocalTime, GeoCoord) -> (LocalTime, GeoCoord) -> Ordering
 compareTimeStamp a b = compare (fst a) (fst b)
@@ -258,7 +264,9 @@ instance FromJSON ReferenceTrackJson
 readReferenceTrackFromFile :: IO ReferenceTrack
 readReferenceTrackFromFile = do
   fileContent <- BL.readFile "./cache/96.json"
-  return $ enrichTrackWithLength 0 $ coordinates $ fromJust $ Aeson.decode fileContent
+  case (Aeson.eitherDecode fileContent) of
+    (Right res) -> return $ enrichTrackWithLength 0 $ coordinates res
+    (Left err) -> error "Can't deserialise Referencetrack."
 
 type Meter = Double
 
@@ -347,14 +355,21 @@ tripToElement' fx fy ((t, v) : ds) = case (fy v) of
   Nothing -> tripToElement' fx fy ds
 
 -- | Transforms a Line to an SVG ELement.
-lineToElement :: ReferenceTrack -> Line -> Element
-lineToElement referenceTrack (Main.Line _ trips) =
+lineToElement :: ReferenceTrack -> [Line] -> Element
+lineToElement referenceTrack lines =
   let fx t = (*) 0.1 $ seconds $ localTimeOfDay t
       fy v = fmap (200 *) $ locateCoordOnTrackLength referenceTrack v
-   in g_ []
-        $ P.mconcat
-        $ P.map (tripToElement fx fy)
-        $ trips
+   in g_ [] $ P.mconcat $
+        P.map
+          ( \(Main.Line lineId trips) ->
+              g_
+                [ Id_ <<- lineId
+                ]
+                $ P.mconcat
+                $ P.map (tripToElement fx fy)
+                $ trips
+          )
+          lines
 
 -- | This code is never used, but maybe when
 -- https://github.com/fosskers/streaming-osm/issues/3 is resolved?
@@ -405,12 +420,31 @@ printCSV (Main.Line _ trips) =
       )
       trips
 
+days :: [String]
+days =
+  [ "2020-06-17",
+    "2020-06-18",
+    "2020-06-19",
+    "2020-06-22",
+    "2020-06-23",
+    "2020-06-24",
+    "2020-06-25",
+    "2020-06-26",
+    "2020-06-29",
+    "2020-06-30",
+    "2020-07-01",
+    "2020-07-02",
+    "2020-07-03",
+    "2020-07-06",
+    "2020-07-07",
+    "2020-07-08",
+    "2020-07-09",
+    "2020-07-10",
+    "2020-07-13"
+  ]
+
 main :: IO ()
 main = do
-  fileList <- listDirectory basePath
-  trips <- getAllVehiclesCached fileList $ filter96
-  referenceTrack <- readReferenceTrackFromFile
-  P.putStrLn "writing csv"
-  P.writeFile "96.csv" $ printCSV trips
-  P.putStrLn "fertig"
-  P.writeFile (dayData <> "-96.svg") $ P.show $ svg $ lineToElement referenceTrack trips
+  lines <- getAllVehiclesCached days filter96
+  referenceTrack96 <- readReferenceTrackFromFile
+  P.writeFile "96.svg" $ P.show $ svg $ lineToElement referenceTrack96 lines
