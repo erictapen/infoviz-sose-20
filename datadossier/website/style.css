@@ -1,3 +1,10 @@
 body{
-  max-width: 40em;
+  max-width: 38em;
+  padding: 2rem;
+  text-align: left;
+  margin: auto;
+}
+
+img{
+  max-width: 100%;
 }

@@ -23,12 +23,20 @@
               | ${pkgs.gzip}/bin/gzip -c \
               > "$dir/$(date --iso-8601=seconds).json.gz"
           '';
-        datadossier-website = pkgs.runCommand "datadossier-website" {
-          src = ./datadossier/website;
-          buildInputs = [ pkgs.pandoc ];
-        } ''
-          pandoc -o $out/index.html index.markdown
-        '';
+        datadossier-website = let
+          md = pkgs.copyPathToStore ./datadossier/website/index.markdown;
+          css = pkgs.copyPathToStore ./datadossier/website/style.css;
+        in
+          pkgs.runCommand "datadossier-website" {
+            buildInputs = [ pkgs.pandoc ];
+            src = ./datadossier/website;
+          } ''
+                  mkdir -p $out/images
+                  cd $src
+                  cp style.css $out/
+            cp images/* $out/images/
+                  pandoc -o $out/index.html --standalone --css style.css --webtex index.markdown
+          '';
       };
 
       defaultPackage.x86_64-linux = self.packages.x86_64-linux.vbb-crawler;
