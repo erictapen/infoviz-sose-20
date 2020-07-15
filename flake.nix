@@ -22,7 +22,13 @@
             ${pkgs.nodejs}/bin/node ${nodePackage}/lib/node_modules/vbb-crawler/index.js \
               | ${pkgs.gzip}/bin/gzip -c \
               > "$dir/$(date --iso-8601=seconds).json.gz"
-      '';
+          '';
+        datadossier-website = pkgs.runCommand "datadossier-website" {
+          src = ./datadossier/website;
+          buildInputs = [ pkgs.pandoc ];
+        } ''
+          pandoc -o $out/index.html index.markdown
+        '';
       };
 
       defaultPackage.x86_64-linux = self.packages.x86_64-linux.vbb-crawler;
