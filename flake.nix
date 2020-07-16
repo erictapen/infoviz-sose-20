@@ -7,7 +7,7 @@
   in
     {
 
-      packages.x86_64-linux = {
+      packages.x86_64-linux = rec {
         vbb-crawler = let
           nodePackage = (
             import ./datadossier/crawler {
@@ -63,7 +63,8 @@
                   mkdir -p $out/images
                   cd $src
                   cp style.css $out/
-            cp images/* $out/images/
+                  cp images/* $out/images/
+                  ln -s ${diagram}/2020-06-18_96.svg $out/images/2020-06-18_96.svg
                   pandoc -o $out/index.html --standalone --css style.css --webtex index.markdown
           '';
       };
