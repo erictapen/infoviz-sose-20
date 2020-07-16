@@ -445,7 +445,8 @@ days =
 
 main :: IO ()
 main = do
-  -- lines <- getAllVehiclesCached days filter96
-  linesOneDay <- getAllVehiclesCached ["2020-06-18"] filter96
   referenceTrack96 <- readReferenceTrackFromFile
+  linesOneDay <- getAllVehiclesCached ["2020-06-18"] filter96
   P.writeFile "2020-06-18_96.svg" $ P.show $ svg $ lineToElement referenceTrack96 linesOneDay
+  lines <- getAllVehiclesCached days filter96
+  P.writeFile "all_days_96.svg" $ P.show $ svg $ lineToElement referenceTrack96 lines

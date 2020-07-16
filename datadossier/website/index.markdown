@@ -315,7 +315,7 @@ Soon we have everything to visualise all data from tram line 96 in *Marey* style
 
 ```hs
 data Filter = Filter Text ((LocalTime, Vehicle) -> Bool)
-abscissa
+
 instance Semigroup Filter where
   (Filter name1 f) <> (Filter name2 g) = Filter
     (name1 <> "-" <> name2)
@@ -329,70 +329,36 @@ filter96 :: Filter
 filter96 = Filter "filter96" $ \(_, v) -> tramId v == "96"
 ```
 
-Putting everything we have together, we can finally show all data for a tram ride in one diagram. It's the tram line 96 for the 18th of June 2020. On the y-axis reside all stations from *Marie-Juchacz-Straße* to *Campus Jungfernsee* (with 14.2km track length inbetween) and on the x-axis the whole day from *00:00* to *23:59* is showed.
+Putting everything we have together, we can finally show all data for a tram ride in one diagram. It's the tram line 96 for the 18th of June 2020. On the y-axis reside all stations from *Marie-Juchacz-Straße* to *Campus Jungfernsee* (with 14.2km track length inbetween) and on the x-axis the whole day from *00:00* to *23:59* is displayed.
 
 <div>
   <div id="scroll-diagram"><img style="height: 20em" src="images/2020-06-18_96.svg"/>
   </div>
 </div>
 
-This is the moment where one could become suspicious of the data shown. First, we are seeing gaps inbetween lines. These gaps mostly are introduced by `splitPredicate`
+This is the moment where one could become suspicious of the data shown. First, we are seeing gaps inbetween lines. These gaps mostly are introduced by `splitTrip`, a function that I didn't explain yet. It splits continous lines, if they have gaps inbetween data points, that are more than 277m on the y axis apart. 277m is about the distance a Tram at 100km/h travels in 10 seconds, so this is in order to make anomalies in the data visible where its implausible that the tram actually traveled that fast.
 
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
+But after closer inspection the data becomes even more implausible. Sometimes the lines jump back in space, so it appears like the tram traveled backwards for some hundred meters. While this may happen at some rare occasions (e.g. traffic accidents), it's very unlikely to happen this often during one day as we see it here.
+
+So something must be wrong with the data. At first I suspected GPS inaccuracies. But the errors we are seeing are untypical for GPS; Most of the time the locations are very accurate on track and suddenly they jump around hundreds of meters. The system that aggregates the data could have weird behaviour regarding data processing, where some changes come in delayed for a while and suddenly "unclog" in a "hiccup". All these explanations aren't really satisfying, but in the development process I postponed finding a good answer and rather wrote Haskell code, as this was more fun. Until I managed to draw the data of multiple days ontop of each other. Then it became quiet obvious what was the reason behind the anomalies.
+
+<div>
+  <div id="scroll-diagram"><img style="height: 20em" src="images/all_days_96.svg"/>
+  </div>
+</div>
+
+The coordinates I was processing never were actual GPS measurements in the first place. They are just the output of some system that knows about delay times within 60 second precision and **tries to derive the guessed location of the vehicle** from that information. At least this is the only possible explanation I can come up with for these patterns; A lot of parallel stripes, that are exactly 60 seconds apart on the y-axis.
+
+So why on earth would an API deliver location data, that is not actual location data but can be derived from a much simpler endpoint of the same API? I don't know, but I guess this endpoint is designed so one can easily create an up-to-date war room style map of all active vehicles in the fleet. Maybe it even delivers actual location data for vehicles that support it and just fills in the gaps for everything that doesn't?
+
+Anyway, it's quite annoying to find out about the true nature of the raw data this late into the project. This could have gotten a lot more technologically elegant; I could have used the `arrival` HAFAS endpoint in the first place, which would have resulted in much fewer requests and orders of magnitude fewer data. So what I'm taking away here once more, is that actually looking at the data is something that should be never postponed. I was so busy building my Haskell code towards an assumed goal, that I never questioned the necessary foundations of that goal.
+
+In the end I'd say that this attempt still was a success. The delay information is the most accurate one can get, given that the HAFAS API is the only interface available. It might not have 1 second but 60 second precision, but it still allows for some neat insights. Especially when one blends the individual days into each other, so that **delay distributions become visible**.
 
 
+TODO
+<div>
+  <div id="scroll-diagram"><img style="height: 20em" src="images/all_days_blended_96.svg"/>
+  </div>
+</div>
 
-
-
-
-
-
-
-
-
-
-
-
-For course participants: See [`justin-example.json`](https://infovis.fh-potsdam.de/datasets/justin-example.json) on the SFTP server as an example.
-
-I did that every 10 seconds for the course of the last two weeks.
-
-## Processing the data
-
-For processing the data I choose Haskell as a programming language. It allows for strong typing, which I find always convenient in building data pipelines, is comparatively fast and is [excellently suited to build SVG structures](http://hackage.haskell.org/package/svg-builder), which I want to use to construct my final graphic.
-
-All the Haskell code is located in [`Main.hs`](extract-from-raw/src/Main.hs).
-
-`TODO`: Explain the processing in more depth, will probably take the most part of the article.
-
-
-## Visualizing the data
-
-In this project I wanted to try a way of visualizing train delays I'd thought about for a long time. I very much like this historic schedule by *E. J. Marey*:
-
-![](marey.jpg)
-
-But this is a schedule that doesn't show the data from actual train rides. What if it could show data from actual rides? This way one could observe delay characteristics of a certain ride (e.g. 6.31 in the morning on work days) by looking at the sharpness of the line!
-
-Here is an early example, showing the Tram line 96 on the 24th of June 2020.
-
-![](preview.png)
-
-See alse the generated SVG graphic [`preview.svg`](preview.svg).
