@@ -16,6 +16,7 @@ import Data.Text as TS
 import Data.Text.IO as TSIO
 import Data.Time.LocalTime
 import GHC.Generics
+import GHC.IO.Encoding
 import Graphics.Svg
 import Streaming.Osm
 import Streaming.Osm.Types
@@ -261,11 +262,11 @@ data ReferenceTrackJson
 
 instance FromJSON ReferenceTrackJson
 
-readReferenceTrackFromFile :: IO ReferenceTrack
+readReferenceTrackFromFile :: IO (ReferenceTrack, [(Text, GeoCoord)])
 readReferenceTrackFromFile = do
   fileContent <- BL.readFile "./cache/96.json"
   case (Aeson.eitherDecode fileContent) of
-    (Right res) -> return $ enrichTrackWithLength 0 $ coordinates res
+    (Right res) -> return (enrichTrackWithLength 0 $ coordinates res, stations res)
     (Left err) -> error "Can't deserialise Referencetrack."
 
 type Meter = Double
@@ -298,10 +299,16 @@ enrichTrackWithLength m (x : next : xs) =
 -- document root
 svg :: Element -> Element
 svg content =
-  doctype
-    <> Graphics.Svg.with
-      (svg11_ content)
-      [Version_ <<- "1.1", Width_ <<- "8640", Height_ <<- "200", ViewBox_ <<- "0 0 8640 200"]
+  let width = 8640 + 50 + 20 + 20
+      height = 200 + 20 + 20
+   in doctype
+        <> Graphics.Svg.with
+          (svg11_ content)
+          [ Version_ <<- "1.1",
+            Width_ <<- (toText width),
+            Height_ <<- (toText height),
+            ViewBox_ <<- "0 0 " <> (toText width) <> " " <> (toText height)
+          ]
 
 -- | Seconds from midnight on a TimeOfDay
 seconds :: TimeOfDay -> Double
@@ -355,21 +362,93 @@ tripToElement' fx fy ((t, v) : ds) = case (fy v) of
   Nothing -> tripToElement' fx fy ds
 
 -- | Transforms a Line to an SVG ELement.
-lineToElement :: ReferenceTrack -> [Line] -> Element
-lineToElement referenceTrack lines =
-  let fx t = (*) 0.1 $ seconds $ localTimeOfDay t
+lineToElement :: [(Text, GeoCoord)] -> ReferenceTrack -> [Line] -> Element
+lineToElement stations referenceTrack lines =
+  let fx t = (*) 0.1 $ seconds t
       fy v = fmap (200 *) $ locateCoordOnTrackLength referenceTrack v
-   in g_ [] $ P.mconcat $
-        P.map
-          ( \(Main.Line lineId trips) ->
-              g_
-                [ Id_ <<- lineId
-                ]
-                $ P.mconcat
-                $ P.map (tripToElement fx fy)
-                $ trips
+   in g_
+        [ Transform_ <<- translate 20 20
+        ]
+        $ (yLegend fy stations)
+          <> (xLegend fx)
+          <> ( P.mconcat $
+                 P.map
+                   ( \(Main.Line lineId trips) ->
+                       g_
+                         [ Id_ <<- lineId,
+                           Transform_ <<- translate 50 0
+                         ]
+                         $ P.mconcat
+                         $ P.map (tripToElement (fx . localTimeOfDay) fy)
+                         $ trips
+                   )
+                   lines
+             )
+
+formatTime :: TimeOfDay -> Text
+formatTime t =
+  TS.pack $
+    (P.show $ todHour t)
+      <> ":"
+      <> ( case (todMin t) of
+             0 -> "00"
+             _ -> (P.show (todMin t))
+         )
+
+xLegend :: (TimeOfDay -> Double) -> Element
+xLegend fx =
+  P.mconcat $
+    P.map
+      ( \t ->
+          ( text_
+              [ X_ <<- (toText ((fx t) + 50)),
+                Y_ <<- (toText (-5)),
+                Font_family_ <<- "Fira Sans",
+                Text_anchor_ <<- "middle",
+                Style_ <<- "text-align: center;",
+                Font_size_ <<- "4"
+              ]
+              $ toElement
+              $ formatTime t
           )
-          lines
+            <> line_
+              [ X1_ <<- (toText ((fx t) + 50)),
+                X2_ <<- (toText ((fx t) + 50)),
+                Y1_ <<- (toText (-3)),
+                Y2_ <<- (toText (-1)),
+                Stroke_ <<- "black",
+                Stroke_width_ <<- "1"
+              ]
+      )
+      [(TimeOfDay h m 0) | h <- [0 .. 23], m <- [0, 10 .. 50]]
+
+yLegend :: (GeoCoord -> Maybe Double) -> [(Text, GeoCoord)] -> Element
+yLegend _ [] = mempty
+yLegend fy ((label, coord) : stations) =
+  ( case (fy coord) of
+      Nothing -> mempty
+      (Just yPos) ->
+        ( ( text_
+              [ X_ <<- (toText (50 - 1)),
+                Y_ <<- (toText (yPos + 1)),
+                Font_family_ <<- "Fira Sans",
+                Text_anchor_ <<- "end",
+                Style_ <<- "text-align: end;",
+                Font_size_ <<- "4"
+              ]
+              $ toElement label
+          )
+            <> line_
+              [ X1_ <<- (toText 50),
+                Y1_ <<- (toText yPos),
+                X2_ <<- (toText (8640 + 50)),
+                Y2_ <<- (toText yPos),
+                Stroke_ <<- "#C0C0C0",
+                Stroke_width_ <<- "0.5"
+              ]
+        )
+  )
+    <> yLegend fy stations
 
 -- | This code is never used, but maybe when
 -- https://github.com/fosskers/streaming-osm/issues/3 is resolved?
@@ -445,8 +524,9 @@ days =
 
 main :: IO ()
 main = do
-  referenceTrack96 <- readReferenceTrackFromFile
+  setLocaleEncoding utf8
+  (referenceTrack96, stations96) <- readReferenceTrackFromFile
   linesOneDay <- getAllVehiclesCached ["2020-06-18"] filter96
-  P.writeFile "2020-06-18_96.svg" $ P.show $ svg $ lineToElement referenceTrack96 linesOneDay
+  P.writeFile "2020-06-18_96.svg" $ P.show $ svg $ lineToElement stations96 referenceTrack96 linesOneDay
   lines <- getAllVehiclesCached days filter96
-  P.writeFile "all_days_96.svg" $ P.show $ svg $ lineToElement referenceTrack96 lines
+  P.writeFile "all_days_96.svg" $ P.show $ svg $ lineToElement stations96 referenceTrack96 lines

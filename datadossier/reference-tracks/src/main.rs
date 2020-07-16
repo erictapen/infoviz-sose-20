@@ -24,8 +24,9 @@ fn main() {
         })
         .unwrap();
     println!("Filtered {} OsmObj.", objects.len());
-    let mut coordinates: Vec<(f64, f64)> = {
-        let mut res = Vec::new();
+    let (mut coordinates, stations): (Vec<(f64, f64)>, Vec<(String, (f64, f64))>) = {
+        let mut coordinates = Vec::new();
+        let mut stations = Vec::new();
         if let OsmObj::Relation(relation) = objects.get(&track_id).unwrap() {
             for reference in &relation.refs {
                 match reference {
@@ -41,9 +42,22 @@ fn main() {
                                     if let OsmObj::Node(node) =
                                         objects.get(&OsmId::Node(*node_id)).unwrap()
                                     {
-                                        res.push((node.lat(), node.lon()));
+                                        coordinates.push((node.lat(), node.lon()));
                                     }
                                 }
+                            }
+                        }
+                    }
+                    Ref {
+                        member: OsmId::Node(id),
+                        ..
+                    } => {
+                        if let OsmObj::Node(node) = objects.get(&OsmId::Node(*id)).unwrap() {
+                            if node.tags.contains("railway", "tram_stop") {
+                                stations.push((
+                                    node.tags.get("name").unwrap().to_string(),
+                                    (node.lat(), node.lon()),
+                                ));
                             }
                         }
                     }
@@ -51,7 +65,7 @@ fn main() {
                 }
             }
         }
-        res
+        (coordinates, stations)
     };
     // OSM data is not always in the correct order, so we have to hop from coordinate to coordinate and
     // very much hope that the resulting path is the actual track.
@@ -98,7 +112,7 @@ fn main() {
     let reference_track = ReferenceTrack {
         label: "96",
         coordinates: sorted_coordinates,
-        stations: Vec::new(),
+        stations: stations,
     };
     let file = File::create("96.json").unwrap();
     serde_json::to_writer(file, &reference_track).unwrap();

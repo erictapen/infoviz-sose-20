@@ -280,7 +280,7 @@ import Data.Text.Lazy (toStrict)
 
 main :: IO ()
 main = do
-  referenceTrack96 <- readReferenceTrackFromFile
+  (referenceTrack96, _) <- readReferenceTrackFromFile
   TSIO.putStrLn
     $ Data.Text.Lazy.toStrict
     $ prettyText
@@ -332,7 +332,7 @@ filter96 = Filter "filter96" $ \(_, v) -> tramId v == "96"
 Putting everything we have together, we can finally show all data for a tram ride in one diagram. It's the tram line 96 for the 18th of June 2020. On the y-axis reside all stations from *Marie-Juchacz-Straße* to *Campus Jungfernsee* (with 14.2km track length inbetween) and on the x-axis the whole day from *00:00* to *23:59* is displayed.
 
 <div>
-  <div id="scroll-diagram"><img style="height: 20em" src="images/2020-06-18_96.svg"/>
+  <div id="scroll-diagram"><img style="height: 30em" src="images/2020-06-18_96.svg"/>
   </div>
 </div>
 
@@ -343,7 +343,7 @@ But after closer inspection the data becomes even more implausible. Sometimes th
 So something must be wrong with the data. At first I suspected GPS inaccuracies. But the errors we are seeing are untypical for GPS; Most of the time the locations are very accurate on track and suddenly they jump around hundreds of meters. The system that aggregates the data could have weird behaviour regarding data processing, where some changes come in delayed for a while and suddenly "unclog" in a "hiccup". All these explanations aren't really satisfying, but in the development process I postponed finding a good answer and rather wrote Haskell code, as this was more fun. Until I managed to draw the data of multiple days ontop of each other. Then it became quiet obvious what was the reason behind the anomalies.
 
 <div>
-  <div id="scroll-diagram"><img style="height: 20em" src="images/all_days_96.svg"/>
+  <div id="scroll-diagram"><img style="height: 30em" src="images/all_days_96.svg"/>
   </div>
 </div>
 
@@ -358,7 +358,7 @@ In the end I'd say that this attempt still was a success. The delay information 
 
 TODO
 <div>
-  <div id="scroll-diagram"><img style="height: 20em" src="images/all_days_blended_96.svg"/>
+  <div id="scroll-diagram"><img style="height: 30em" src="images/all_days_blended_96.svg"/>
   </div>
 </div>
 
