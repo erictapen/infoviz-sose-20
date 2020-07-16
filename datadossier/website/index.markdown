@@ -111,7 +111,7 @@ With that infrastructure in place I ran the crawler for 29 days and accumulated 
 
 For determining the delay of a particular vehicle one needs to project the vehicle location onto the known track geometry, so one can derive statements like "this tram is at 70.6% of the track, which is around 13 seconds behind schedule".
 
-As this operation would need to be applied to a lot of data and also might become quite complex, I chose [Haskell](http://haskell.org/) as the programming language for the task. Haskell is a fast and strongly typed functional programming language. I usually enjoy building data pipelines in Haskell, as due to the strong type system most of the errors are catched at compile time. This reduces the amount of times, I run the program for minutes, only to find out that a simple error crashed it at end of the computation.<! Der Satz ist weird.>  Also I like the language in general and want to become better at it.
+As this operation would need to be applied to a lot of data and also might become quite complex, I chose [Haskell](http://haskell.org/) as the programming language for the task. Haskell is a fast and strongly typed functional programming language. I usually enjoy building data pipelines in Haskell, as due to the strong type system most of the errors are catched at compile time. This reduces the amount of times where I find my computation aborted, just due to an casting error in the last steps. Also I like the language in general and want to become better at it.
 
 One thing I didn't like about my choice is that the Haskell ecosystem is not very developed in terms of consistency, accessability and availability of libraries for certain tasks. This e.g. resulted in quite a bit of conversion code in the final software or the fact that I had to use a small Rust program to read OpenStreetMap files, as the Haskell library for this task had a critical bug. Also I didn't receive the performance I hoped for. For sure there are lots of possible optimisation opportunities in my code, but I know too little about optimizing Haskell code to implement them.
 
@@ -227,7 +227,7 @@ TODO lose a word or two about how much of a PITA trip separation was.
 
 So far there is no sign of that false assumption about the data that I mentioned earlier. But it will become visible pretty soon.
 
-From the initial idea on, I wanted to visualise the tram rides in a way similar to this historic graphic from 1885 by *E.J. Marey*, which shows a train schedule. The trains traversal<! das wort kenne ich nicht> through time and space is visualised with time on the x-axis and travelled distance on the y-axis<Tendenziell ists cooler von abscissa und ordinate zu sprechen>. This way the train is visible as a continious line, that runs diagonally in times of motion and horizontally when the train is standing. One can easily determine speed and travel direction from the steepness of the lines.
+From the initial idea on, I wanted to visualise the tram rides in a way similar to this historic graphic from 1885 by *E.J. Marey*, which shows a train schedule. The trains traversal through time and space is visualised with time on the x-axis and travelled distance on the y-axis. This way the train is visible as a continious line, that runs diagonally in times of motion and horizontally when the train is standing. One can easily determine speed and travel direction from the steepness of the lines.
 
 <img style="max-width: 100%;" src="images/marey.jpg">
 
@@ -336,6 +336,7 @@ Putting everything we have together, we can finally show all data for a tram rid
   </div>
 </div>
 
+This is the moment where one could become suspicious of the data shown. First, we are seeing gaps inbetween lines. These gaps mostly are introduced by `splitPredicate`
 
 <br>
 <br>
