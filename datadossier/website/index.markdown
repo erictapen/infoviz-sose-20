@@ -229,7 +229,7 @@ So far no sign of that false assumption about the data that I mentioned earlier.
 
 From the initial idea on, I wanted to visualise the tram rides in the way, this historic graphic from 1885 by *E.J. Marey* shows a train schedule. The trains traversal through time and space is visualised with time on the x-axis and travelled distance on the y-axis. This way the train is visible through a continious line, that runs diagonally in times of motion and horizontally when the train is standing. One can easily determine speed and travel direction from the steepness of the lines.
 
-![](images/marey.jpg)
+<img style="max-width: 100%;" src="images/marey.jpg">
 
 Of course this graphic shows only the planned schedule over the day. But it is easy to show actual trip data.
 
@@ -329,9 +329,12 @@ filter96 :: Filter
 filter96 = Filter "filter96" $ \(_, v) -> tramId v == "96"
 ```
 
-Putting everything we have together, we can finally show all data for a tram ride in one diagram.
+Putting everything we have together, we can finally show all data for a tram ride in one diagram. It's the tram line 96 for the 18th of June 2020. On the y-axis reside all stations from *Marie-Juchacz-Straße* to *Campus Jungfernsee* (with 14.2km track length inbetween) and on the x-axis the whole day from *00:00* to *23:59* is showed.
 
-![](images/2020-06-18_96.svg)
+<div>
+  <div id="scroll-diagram"><img style="height: 20em" src="images/2020-06-18_96.svg"/>
+  </div>
+</div>
 
 
 <br>

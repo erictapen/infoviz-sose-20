@@ -5,6 +5,8 @@ body{
   margin: auto;
 }
 
-img{
-  max-width: 100%;
+#scroll-diagram {
+  overflow-x: scroll;
+  width: 38em;
 }
+
