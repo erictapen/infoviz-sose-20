@@ -1,14 +1,14 @@
 # Tram delays in Potsdam
 
-In this datadossier I originally wanted to use geo data from trams in Potsdam, Germany, to visualize their delay characteristics. Unfortunately I made a big mistake in the process; I misinterpreted the nature of my data entirely. When I worked on this over the past months I repeatedly saw hints to my mistake, but I failed to fully aknowledge them, until two days before the deadline. So this is more a story about bad data interpretation and not so much one about tram delays, but of course it is also about tram delays.
+In this datadossier I originally wanted to use geo data from trams in Potsdam, Germany, to visualize their delay characteristics. Unfortunately I made a big mistake in the process; I misinterpreted the nature of my data entirely. When I worked on this over the past months I repeatedly saw hints to my mistake, but I failed to fully acknowledge them, until two days before the deadline. So this is more a story about bad data interpretation and not so much one about tram delays, but of course it is also about tram delays.
 
 ## Fetching raw data
 
-Trams in Potsdam are operated by the [*Verkehrbetrieb Potsdam (ViP)*](https://www.swp-potsdam.de/de/verkehr/) which is a part of [*Verkehrsverbund Berlin-Brandenburg (VBB)*](https://www.vbb.de/). ViP as well as VBB don't offer an open API for getting delay data on their schedules, but the VBB internally uses a system called HAFAS for managing their train and bus schedules. HAFAS is very popular among european transport providers, so some kind souls wrote a [reverse engineered client](https://github.com/public-transport/hafas-client) for the system.
+Trams in Potsdam are operated by the [*Verkehrbetrieb Potsdam (ViP)*](https://www.swp-potsdam.de/de/verkehr/) which is a part of [*Verkehrsverbund Berlin-Brandenburg (VBB)*](https://www.vbb.de/). ViP as well as VBB do not offer an open API for getting delay data on their schedules, but the VBB internally uses a system called HAFAS for managing their train and bus schedules. HAFAS is very popular among european transport providers, so some kind souls wrote a [reverse engineered client](https://github.com/public-transport/hafas-client) for the system.
 
 This `hafas-client` project is written in NodeJS and provides multiple endpoints for querying the data from VBB. A good fit for my project would have been [`arrivals(station, [opt])`](https://github.com/public-transport/hafas-client/blob/5/docs/arrivals.md). It essentially receives a station ID and returns all incoming arrivals with their corresponding delay. The delays come only with one minute resolution, so basically one gets the content of a platform display.
 
-As tram lines in Potsdam sometimes arrive as frequently as every 10 minutes, having only minute resolution would seriously lessen the insight one could have into delay characteristics. Another barrier would be, that one can only observe changes in delay between stations, but it's not possible to see what happens inbetween stations. So I ended up using the [`radar({north, west, south, east}, [opt])`](https://github.com/public-transport/hafas-client/blob/5/docs/radar.md) endpoint. As the name suggests, this endpoint provides a geocoordinate for every active public transport vehicle in a given area.
+As tram lines in Potsdam sometimes arrive as frequently as every 10 minutes, having only minute resolution would seriously restrict the insight one could have into delay characteristics. Another barrier would be, that one can only observe changes in delay between stations, but it's not possible to see what happens inbetween stations. So I ended up using the [`radar({north, west, south, east}, [opt])`](https://github.com/public-transport/hafas-client/blob/5/docs/radar.md) endpoint. As the name suggests, this endpoint provides a geocoordinate for every active public transport vehicle in a given area.
 
 TODO graphic one request | aggregated results for an hour in GIS
 
@@ -67,7 +67,7 @@ With this geodata, I hoped to get delay information accurate to the second! As I
 
 As it turned out, this is where I was wrong. The geoinformation aquired by `radar` turned out to be not the actual location of the vehicles, but something else. More on that later.
 
-As `radar` doesn't provide historic data, it was clear that I needed to fetch data continuously. In order to not overwhelm the VBB servers I needed to choose an fetching interval not too short, but short enough to make meaningful features visible. Features I was hoping to see are the amount of time a tram stops at a station or specific de/acceleration behaviour, that happens always at the same spot, e.g. an traffic intersection. I measured once how long a typical tram stop lasts (23 seconds on crowded *Brandenburger Straße*) and concluded, that polling the API every 10 seconds would be sufficient.
+As `radar` doesn't provide historic data, it was clear that I needed to fetch data continuously. In order to not overwhelm the VBB servers I needed to choose a fetching interval not too short, but short enough to make meaningful features visible. Features I was hoping to see are the amount of time a tram stops at a station or specific de-/acceleration behaviour, that happens always at the same spot, e.g. at traffic intersections. I measured once how long a typical tram stop lasts (23 seconds on crowded *Brandenburger Straße*) and concluded, that polling the API every 10 seconds would be sufficient.
 
 To artifically increase the sampling rate I didn't query on every full 10 seconds of the day, but distributed the requests randomly over its 10 second interval. To illustrate this idea with an example: A tram 96 departs from *Platz der Einheit/West* everyday on `13:47:00` if it's on schedule. Measurung every day on `13:47:00` and `13:47:10` would give me only two samples about the acceleration behaviour of the tram in that interval. If I waited randomly between 0 and 10 seconds, I could get much more samples over the ideal acceleration, as one day I might sample `13:47:02` and on another day `13:47:03`, increasing the overall amount of samples I'm seeing.
 
@@ -109,13 +109,13 @@ With that infrastructure in place I ran the crawler for 29 days and accumulated 
 
 ## Mapping vehicle locations to track positions
 
-For determining the delay of a particular vehicle one needs to project the vehicle location on the known track geometry, so we can derive statements like "this tram is at 70.6% of the track, which is around 13 seconds behind schedule".
+For determining the delay of a particular vehicle one needs to project the vehicle location onto the known track geometry, so one can derive statements like "this tram is at 70.6% of the track, which is around 13 seconds behind schedule".
 
-As this operation would need to be applied on a lot of data and also might become quite complex, I chose [Haskell](http://haskell.org/) as the programming language for the task. Haskell is a fast and strongly typed functional programming language. I usually enjoy building data pipelines in Haskell, as due to the strong type system most of the errors are catched at compile time. That reduces the amount of times, I run the program for minutes, only to find out that a simple error crashed it at end of the computation. Also I like the language in general and want to become better at it.
+As this operation would need to be applied to a lot of data and also might become quite complex, I chose [Haskell](http://haskell.org/) as the programming language for the task. Haskell is a fast and strongly typed functional programming language. I usually enjoy building data pipelines in Haskell, as due to the strong type system most of the errors are catched at compile time. This reduces the amount of times, I run the program for minutes, only to find out that a simple error crashed it at end of the computation.<! Der Satz ist weird.>  Also I like the language in general and want to become better at it.
 
-One thing I didn't like about my choice is that the Haskell ecosystem is not so developed in terms of consistency, accessability and availability of libraries for certain tasks. This e.g. resulted in quite a bit of conversion code in the final software or the fact that I had to use a small Rust program to read OpenStreetMap files, as the Haskell library for that task had a critical bug. Also I didn't received the performance I hoped for. For sure there are lots of possible optimisation opportunities in my code, but I know too little about optimizing Haskell code.
+One thing I didn't like about my choice is that the Haskell ecosystem is not very developed in terms of consistency, accessability and availability of libraries for certain tasks. This e.g. resulted in quite a bit of conversion code in the final software or the fact that I had to use a small Rust program to read OpenStreetMap files, as the Haskell library for this task had a critical bug. Also I didn't receive the performance I hoped for. For sure there are lots of possible optimisation opportunities in my code, but I know too little about optimizing Haskell code to implement them.
 
-All the data processing logic sits in [`src/Main.hs`](https://github.com/erictapen/infoviz-ss-20/blob/master/datadossier/diagram/src/Main.hs). Following are some bits of the code explained. `Main.hs` contains a lot more comments, so if you want to understand it more deeply it might be worth a look.
+All the data processing logic sits in [`src/Main.hs`](https://github.com/erictapen/infoviz-ss-20/blob/master/datadossier/diagram/src/Main.hs). In the following, some bits of the code are explained. `Main.hs` contains many comments, so if you want to understand it more deeply it might be worth a look.
 
 `GeoCoord` is a pair of doubles, e.g. `(52.3980439, 13.0593256)`. `Vec` is a triple of doubles, representing the 3D position of one spot on the earths surface in meters. It's not important to which origin this vector relates, as we only look at relative distances between vectors.
 
@@ -178,7 +178,7 @@ TODO: ghci example that results in Nothing
 
 TODO: image that shows this graphically.
 
-`ReferenceTrack` is a list of pairs of a Double (in meters) and a `GeoCoord`. It represents the actual track along which the tram travels and also contains somewhat of an [location marker](https://en.wikipedia.org/wiki/Highway_location_marker) for every coordinate, which tells us how many meters into the track a given coordinate is. We use the data structure to project a given tram location on the track and to determine how much of the overall track the tram has traveled.
+`ReferenceTrack` is a list of pairs of a double (in meters) and a `GeoCoord`. It represents the actual track along which the tram travels and also contains somewhat of a [location marker](https://en.wikipedia.org/wiki/Highway_location_marker) for every coordinate, which tells us how many meters into the track a given coordinate is. We use the data structure to project a given tram location to the track and to determine how much of the overall track the tram has traveled.
 
 ```hs
 type ReferenceTrack = [(Meter, GeoCoord)]
@@ -201,7 +201,7 @@ With a `ReferenceTrack` and the `mapToTrack` function, we can finally determine 
 - Determine the two points of the track that are nearest to our data point.
 - Treat these two track points as a track segment.
 - Project the data point onto that track segment using `mapToTrack`.
-- If `mapToTrack` returns something, return that value plus the current location marker, normalized to the overall track length (14238 meters in the case of tram line 96). If not, return `Nothing`. That would mean that a mapping is not possible, as we obviously cannot project every possible location on earth to the track.
+- If `mapToTrack` returns something, return that value plus the current location marker, normalized to the overall track length (14238 meters in the case of tram line 96). If not, return `Nothing`. This would mean that a mapping is not possible, as we obviously cannot project every possible location on earth to the track.
 
 ```hs
 locateCoordOnTrackLength :: ReferenceTrack -> GeoCoord -> Maybe Double
@@ -225,19 +225,19 @@ TODO lose a word or two about how much of a PITA trip separation was.
 
 ## Visualizing the data
 
-So far no sign of that false assumption about the data that I mentioned earlier. But it will become visible pretty soon.
+So far there is no sign of that false assumption about the data that I mentioned earlier. But it will become visible pretty soon.
 
-From the initial idea on, I wanted to visualise the tram rides in the way, this historic graphic from 1885 by *E.J. Marey* shows a train schedule. The trains traversal through time and space is visualised with time on the x-axis and travelled distance on the y-axis. This way the train is visible through a continious line, that runs diagonally in times of motion and horizontally when the train is standing. One can easily determine speed and travel direction from the steepness of the lines.
+From the initial idea on, I wanted to visualise the tram rides in a way similar to this historic graphic from 1885 by *E.J. Marey*, which shows a train schedule. The trains traversal<! das wort kenne ich nicht> through time and space is visualised with time on the x-axis and travelled distance on the y-axis<Tendenziell ists cooler von abscissa und ordinate zu sprechen>. This way the train is visible as a continious line, that runs diagonally in times of motion and horizontally when the train is standing. One can easily determine speed and travel direction from the steepness of the lines.
 
 <img style="max-width: 100%;" src="images/marey.jpg">
 
-Of course this graphic shows only the planned schedule over the day. But it is easy to show actual trip data.
+Of course this graphic only shows the planned schedule over the day. But it is easy to show actual trip data.
 
-For generating graphics I also used Haskell, as there exists an [excellent library](http://hackage.haskell.org/package/svg-builder) for constructing SVG files. The `tripToElement` function transforms a bunch of inputs into an SVG `Element`. These inputs are
+For generating graphics I also used Haskell, as there exists an [excellent library](http://hackage.haskell.org/package/svg-builder) for constructing SVG files. The `tripToElement` function transforms a bunch of inputs into a SVG `Element`. These inputs are
 
 - `LocalTime -> Double`, a function to linearly position a timestamp on the x-axis.
 - `GeoCoord -> Maybe Double`, a function that positions a coordinate on the y-axis, with the opportunity to fail. This will be `(locateCoordOnTrackLength referenceTrack96)`.
-- `(TripId, [(LocalTime, GeoCoord)]`, basically a list of time and space data points, grouped together by a `TripId`, which is an `Int` found in the raw data and that is used to group data points together.
+- `(TripId, [(LocalTime, GeoCoord)]`, basically a list of time and space data points, grouped together by a `TripId`, which is an `Int` found in the raw data and is used to group data points together.
 
 ```hs
 tripToElement ::
@@ -315,7 +315,7 @@ Soon we have everything to visualise all data from tram line 96 in *Marey* style
 
 ```hs
 data Filter = Filter Text ((LocalTime, Vehicle) -> Bool)
-
+abscissa
 instance Semigroup Filter where
   (Filter name1 f) <> (Filter name2 g) = Filter
     (name1 <> "-" <> name2)
