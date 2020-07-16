@@ -173,7 +173,9 @@ The projection is done by computing the [scalar product](https://en.wikipedia.or
 > mapToTrack (52.415193, 13.050288) (52.415795, 13.050324) (52.415283, 13.050306)
 Just 10.0453908483592
 ```
+
 TODO: ghci example that results in Nothing
+
 TODO: image that shows this graphically.
 
 `ReferenceTrack` is a list of pairs of a Double (in meters) and a `GeoCoord`. It represents the actual track along which the tram travels and also contains somewhat of an [location marker](https://en.wikipedia.org/wiki/Highway_location_marker) for every coordinate, which tells us how many meters into the track a given coordinate is. We use the data structure to project a given tram location on the track and to determine how much of the overall track the tram has traveled.
@@ -327,9 +329,9 @@ filter96 :: Filter
 filter96 = Filter "filter96" $ \(_, v) -> tramId v == "96"
 ```
 
-Putting everything we have together, we can finally see all data for a tram ride in one diagram.
+Putting everything we have together, we can finally show all data for a tram ride in one diagram.
 
-![](2020-06-18_96.svg)
+![](images/2020-06-18_96.svg)
 
 
 <br>

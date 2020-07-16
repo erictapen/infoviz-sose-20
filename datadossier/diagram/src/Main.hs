@@ -422,7 +422,7 @@ printCSV (Main.Line _ trips) =
 
 days :: [String]
 days =
-  [ "2020-06-17",
+  [ -- We don't use 2020-06-17, as it is incomplete
     "2020-06-18",
     "2020-06-19",
     "2020-06-22",
@@ -445,6 +445,7 @@ days =
 
 main :: IO ()
 main = do
-  lines <- getAllVehiclesCached days filter96
+  -- lines <- getAllVehiclesCached days filter96
+  linesOneDay <- getAllVehiclesCached ["2020-06-18"] filter96
   referenceTrack96 <- readReferenceTrackFromFile
-  P.writeFile "96.svg" $ P.show $ svg $ lineToElement referenceTrack96 lines
+  P.writeFile "2020-06-18_96.svg" $ P.show $ svg $ lineToElement referenceTrack96 linesOneDay

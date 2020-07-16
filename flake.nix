@@ -23,6 +23,35 @@
               | ${pkgs.gzip}/bin/gzip -c \
               > "$dir/$(date --iso-8601=seconds).json.gz"
           '';
+        diagram = pkgs.stdenv.mkDerivation {
+          name = "diagram";
+          src = ./datadossier/diagram;
+          buildInputs = with pkgs; [
+            (
+              haskellPackages.ghcWithPackages (
+                p: with p; [
+                  aeson
+                  zlib
+                  utf8-string
+                  geojson
+                  MissingH
+                  hcoord
+                  svg-builder
+                  streaming-osm
+                ]
+              )
+            )
+            zlib
+          ];
+          buildPhase = ''
+            ghc -O2 -o Main src/Main.hs
+            ./Main
+          '';
+          installPhase = ''
+            mkdir -p $out
+            mv *.svg $out/
+          '';
+        };
         datadossier-website = let
           md = pkgs.copyPathToStore ./datadossier/website/index.markdown;
           css = pkgs.copyPathToStore ./datadossier/website/style.css;
