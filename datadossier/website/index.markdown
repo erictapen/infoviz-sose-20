@@ -102,7 +102,7 @@ Type=oneshot
 WorkingDirectory=/var/lib/vbb-crawler
 ```
 
-With that infrastructure in place I ran the crawler for 29 days and accumulated around 2.7GiB of gzipped JSON data. That is too much to be published in this repository, but you can find an intermediate representation in the [`cache/` directory](https://github.com/erictapen/infoviz-ss-20/tree/master/datadossier/diagram/cache). This means that you could always invalidate the cache and use this project with your own data, but at the same time you are able to regenerate the diagrams from the exact same cache content they were generated from. More about reproducing this project [here](https://github.com/erictapen/infoviz-ss-20/tree/master/datadossier).
+With that infrastructure in place I ran the crawler for 21 weekdays and accumulated around 2.7GiB of gzipped JSON data. That is too much to be published in this repository, but you can find an intermediate representation in the [`cache/` directory](https://github.com/erictapen/infoviz-ss-20/tree/master/datadossier/diagram/cache). This means that you could always invalidate the cache and use this project with your own data, but at the same time you are able to regenerate the diagrams from the exact same cache content they were generated from. More about reproducing this project [here](https://github.com/erictapen/infoviz-ss-20/tree/master/datadossier).
 
 
 ## Mapping vehicle locations to track positions
