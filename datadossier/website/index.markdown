@@ -10,8 +10,6 @@ This `hafas-client` project is written in NodeJS and provides multiple endpoints
 
 As tram lines in Potsdam sometimes arrive as frequently as every 10 minutes, having only minute resolution would seriously restrict the insight one could have into delay characteristics. Another barrier would be, that one can only observe changes in delay between stations, but it's not possible to see what happens inbetween stations. So I ended up using the [`radar({north, west, south, east}, [opt])`](https://github.com/public-transport/hafas-client/blob/5/docs/radar.md) endpoint. As the name suggests, this endpoint provides a geocoordinate for every active public transport vehicle in a given area.
 
-TODO graphic one request | aggregated results for an hour in GIS
-
 ```js
 'use strict'
 
@@ -174,10 +172,6 @@ The projection is done by computing the [scalar product](https://en.wikipedia.or
 Just 10.0453908483592
 ```
 
-TODO: ghci example that results in Nothing
-
-TODO: image that shows this graphically.
-
 `ReferenceTrack` is a list of pairs of a double (in meters) and a `GeoCoord`. It represents the actual track along which the tram travels and also contains somewhat of a [location marker](https://en.wikipedia.org/wiki/Highway_location_marker) for every coordinate, which tells us how many meters into the track a given coordinate is. We use the data structure to project a given tram location to the track and to determine how much of the overall track the tram has traveled.
 
 ```hs
@@ -220,8 +214,6 @@ locateCoordOnTrackLength track coord =
         (Just v) -> Just $ (currentMark + v) / overallTrackLength
         Nothing -> Nothing
 ```
-
-TODO lose a word or two about how much of a PITA trip separation was.
 
 ## Visualizing the data
 
@@ -309,8 +301,6 @@ The code contains lots of conversion code, but essentially it applies `tripToEle
 />
 ```
 
-TODO render that SVG element in the document
-
 Soon we have everything to visualise all data from tram line 96 in *Marey* style diagram. To process only the data points that belong to a specific tram line, we introduce a `Filter` type. It is mainly a function that takes a pair of `LocalTime` and a `Vehicle` (one location measurement of one tram) and returns a `Bool` that signifies wether the data point is included or excluded in later analysis.
 
 ```hs
@@ -354,11 +344,4 @@ So why on earth would an API deliver location data, that is not actual location 
 Anyway, it's quite annoying to find out about the true nature of the raw data this late into the project. This could have gotten a lot more technologically elegant; I could have used the `arrival` HAFAS endpoint in the first place, which would have resulted in much fewer requests and orders of magnitude fewer data. So what I'm taking away here once more, is that actually looking at the data is something that should be never postponed. I was so busy building my Haskell code towards an assumed goal, that I never questioned the necessary foundations of that goal.
 
 In the end I'd say that this attempt still was a success. The delay information is the most accurate one can get, given that the HAFAS API is the only interface available. It might not have 1 second but 60 second precision, but it still allows for some neat insights. Especially when one blends the individual days into each other, so that delay distributions become visible.
-
-
-TODO
-<div>
-  <div id="scroll-diagram"><img style="height: 30em" src="images/all_days_blended_96.svg"/>
-  </div>
-</div>
 
