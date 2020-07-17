@@ -333,18 +333,18 @@ tripToElement fx fy (_, (t, v) : []) = case (fy v) of
     circle_
       [ Cx_ <<- (toText $ fx t),
         Cy_ <<- (toText y),
-        R_ <<- "0.5",
+        R_ <<- "2",
         Stroke_ <<- "none",
-        Fill_ <<- "black"
+        Fill_ <<- "#cccccc"
       ]
   Nothing -> mempty
 tripToElement fx fy (tripId, (t, v) : tripData) = case (fy v) of
   Just y ->
     path_
       [ D_ <<- (mA (fx t) y <> (tripToElement' fx fy tripData)),
-        Stroke_ <<- "black",
+        Stroke_ <<- "#cccccc",
         Fill_ <<- "none",
-        Stroke_width_ <<- "1",
+        Stroke_width_ <<- "4",
         Stroke_linecap_ <<- "round",
         Id_ <<- ((<>) "trip" $ TS.pack $ P.show tripId)
       ]
@@ -371,19 +371,21 @@ lineToElement stations referenceTrack lines =
         ]
         $ (yLegend fy stations)
           <> (xLegend fx)
-          <> ( P.mconcat $
-                 P.map
-                   ( \(Main.Line lineId trips) ->
-                       g_
-                         [ Id_ <<- lineId,
-                           Transform_ <<- translate 50 0
-                         ]
-                         $ P.mconcat
-                         $ P.map (tripToElement (fx . localTimeOfDay) fy)
-                         $ trips
+          <> g_
+            [ Id_ <<- "diagram",
+              Transform_ <<- translate 50 0
+            ]
+            ( styleElement
+                <> ( P.mconcat $
+                       P.map
+                         ( \(Main.Line lineId trips) ->
+                             P.mconcat
+                               $ P.map (tripToElement (fx . localTimeOfDay) fy)
+                               $ trips
+                         )
+                         lines
                    )
-                   lines
-             )
+            )
 
 formatTime :: TimeOfDay -> Text
 formatTime t =
@@ -461,7 +463,7 @@ extractReferenceTrackCached =
       filterRelations (Relation {_rinfo = Nothing}) = False
       filterRelations (Relation {_rinfo = Just (Info {_id = relationId})}) = relationId == 178663 -- Tram96
       filterWays :: [Int] -> Way -> Bool
-      filterWays ids (Way {_winfo = Nothing }) = False
+      filterWays ids (Way {_winfo = Nothing}) = False
       filterWays ids (Way {_winfo = Just (Info {_id = wayId})}) = P.elem wayId ids
       osmToRefTrack :: Relation -> ReferenceTrack
       osmToRefTrack _ = [] -- TODO
@@ -528,6 +530,9 @@ days =
     "2020-07-15",
     "2020-07-16"
   ]
+
+styleElement :: Element
+styleElement = style_ [] "path { mix-blend-mode: multiply; }"
 
 main :: IO ()
 main = do
