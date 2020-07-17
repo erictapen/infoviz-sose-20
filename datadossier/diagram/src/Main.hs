@@ -456,9 +456,13 @@ extractReferenceTrackCached :: IO [ReferenceTrack]
 extractReferenceTrackCached =
   let dataPath = "raw/brandenburg-latest.osm.pbf"
       cachePath = "cache/reference-tracks.json"
+      -- filter through all relations so we get the one we need
       filterRelations :: Relation -> Bool
       filterRelations (Relation {_rinfo = Nothing}) = False
       filterRelations (Relation {_rinfo = Just (Info {_id = relationId})}) = relationId == 178663 -- Tram96
+      filterWays :: [Int] -> Way -> Bool
+      filterWays ids (Way {_winfo = Nothing }) = False
+      filterWays ids (Way {_winfo = Just (Info {_id = wayId})}) = P.elem wayId ids
       osmToRefTrack :: Relation -> ReferenceTrack
       osmToRefTrack _ = [] -- TODO
    in do
