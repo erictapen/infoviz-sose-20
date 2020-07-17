@@ -353,7 +353,7 @@ So why on earth would an API deliver location data, that is not actual location 
 
 Anyway, it's quite annoying to find out about the true nature of the raw data this late into the project. This could have gotten a lot more technologically elegant; I could have used the `arrival` HAFAS endpoint in the first place, which would have resulted in much fewer requests and orders of magnitude fewer data. So what I'm taking away here once more, is that actually looking at the data is something that should be never postponed. I was so busy building my Haskell code towards an assumed goal, that I never questioned the necessary foundations of that goal.
 
-In the end I'd say that this attempt still was a success. The delay information is the most accurate one can get, given that the HAFAS API is the only interface available. It might not have 1 second but 60 second precision, but it still allows for some neat insights. Especially when one blends the individual days into each other, so that **delay distributions become visible**.
+In the end I'd say that this attempt still was a success. The delay information is the most accurate one can get, given that the HAFAS API is the only interface available. It might not have 1 second but 60 second precision, but it still allows for some neat insights. Especially when one blends the individual days into each other, so that delay distributions become visible.
 
 
 TODO
