@@ -64,7 +64,7 @@
             cd $src
             cp style.css $out/
             cp images/* $out/images/
-            ln -s ${diagram}/2020-06-18_96.svg $out/images/2020-06-18_96.svg
+            ln -s ${diagram}/2020-07-06_96.svg $out/images/2020-07-06_96.svg
             ln -s ${diagram}/all_days_96.svg $out/images/all_days_96.svg
             pandoc -o $out/index.html --standalone --css style.css --webtex index.markdown
           '';

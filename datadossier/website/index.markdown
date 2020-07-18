@@ -319,10 +319,10 @@ filter96 :: Filter
 filter96 = Filter "filter96" $ \(_, v) -> tramId v == "96"
 ```
 
-Putting everything we have together, we can finally show all data for a tram ride in one diagram. It's the tram line 96 for the 18th of June 2020. On the y-axis reside all stations from *Marie-Juchacz-Straße* to *Campus Jungfernsee* (with 14.2km track length inbetween) and on the x-axis the whole day from *00:00* to *23:59* is displayed.
+Putting everything we have together, we can finally show all data for a tram ride in one diagram. It's the tram line 96 for the 6th of July 2020. On the y-axis reside all stations from *Marie-Juchacz-Straße* to *Campus Jungfernsee* (with 14.2km track length inbetween) and on the x-axis the whole day from *00:00* to *23:59* is displayed.
 
 <div>
-  <div id="scroll-diagram"><img style="height: 30em" src="images/2020-06-18_96.svg"/>
+  <div id="scroll-diagram"><img style="height: 30em" src="images/2020-07-06_96.svg"/>
   </div>
 </div>
 

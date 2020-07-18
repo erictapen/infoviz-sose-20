@@ -540,7 +540,7 @@ main :: IO ()
 main = do
   setLocaleEncoding utf8
   (referenceTrack96, stations96) <- readReferenceTrackFromFile
-  linesOneDay <- getAllVehiclesCached ["2020-06-18"] filter96
-  P.writeFile "2020-06-18_96.svg" $ P.show $ svg $ lineToElement "black" 1 stations96 referenceTrack96 linesOneDay
+  linesOneDay <- getAllVehiclesCached ["2020-07-06"] filter96
+  P.writeFile "2020-07-06_96.svg" $ P.show $ svg $ lineToElement "black" 1 stations96 referenceTrack96 linesOneDay
   lines <- getAllVehiclesCached days filter96
   P.writeFile "all_days_96.svg" $ P.show $ svg $ lineToElement "#cccccc" 4 stations96 referenceTrack96 lines
