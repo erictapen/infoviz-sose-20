@@ -322,33 +322,35 @@ seconds (TimeOfDay h m s) =
 -- | Transforms a [(LocalTime -> Double)] and two placement functions fx, fy to
 -- an SVG Element. Recursively calls tripToElement'.
 tripToElement ::
+  Text ->
+  Double ->
   (LocalTime -> Double) ->
   (GeoCoord -> Maybe Double) ->
   (TripId, [(LocalTime, GeoCoord)]) ->
   Element
-tripToElement _ _ (_, []) = mempty
+tripToElement _ _ _ _ (_, []) = mempty
 -- For Trips with a single point we draw a circle instead of a path, as otherwise the path wouldn't be visible.
-tripToElement fx fy (_, (t, v) : []) = case (fy v) of
+tripToElement color strokeWidth fx fy (_, (t, v) : []) = case (fy v) of
   Just y ->
     circle_
       [ Cx_ <<- (toText $ fx t),
         Cy_ <<- (toText y),
-        R_ <<- "2",
+        R_ <<- (toText $ 0.5 * strokeWidth),
         Stroke_ <<- "none",
-        Fill_ <<- "#cccccc"
+        Fill_ <<- color
       ]
   Nothing -> mempty
-tripToElement fx fy (tripId, (t, v) : tripData) = case (fy v) of
+tripToElement color strokeWidth fx fy (tripId, (t, v) : tripData) = case (fy v) of
   Just y ->
     path_
       [ D_ <<- (mA (fx t) y <> (tripToElement' fx fy tripData)),
-        Stroke_ <<- "#cccccc",
+        Stroke_ <<- color,
         Fill_ <<- "none",
-        Stroke_width_ <<- "4",
+        Stroke_width_ <<- (toText strokeWidth),
         Stroke_linecap_ <<- "round",
         Id_ <<- ((<>) "trip" $ TS.pack $ P.show tripId)
       ]
-  Nothing -> tripToElement fx fy (tripId, tripData)
+  Nothing -> tripToElement color strokeWidth fx fy (tripId, tripData)
 
 -- | Recursively generate the tail of the path elements.
 tripToElement' ::
@@ -362,8 +364,8 @@ tripToElement' fx fy ((t, v) : ds) = case (fy v) of
   Nothing -> tripToElement' fx fy ds
 
 -- | Transforms a Line to an SVG ELement.
-lineToElement :: [(Text, GeoCoord)] -> ReferenceTrack -> [Line] -> Element
-lineToElement stations referenceTrack lines =
+lineToElement :: Text -> Double -> [(Text, GeoCoord)] -> ReferenceTrack -> [Line] -> Element
+lineToElement color strokeWidth stations referenceTrack lines =
   let fx t = (*) 0.1 $ seconds t
       fy v = fmap (200 *) $ locateCoordOnTrackLength referenceTrack v
    in g_
@@ -380,7 +382,7 @@ lineToElement stations referenceTrack lines =
                        P.map
                          ( \(Main.Line lineId trips) ->
                              P.mconcat
-                               $ P.map (tripToElement (fx . localTimeOfDay) fy)
+                               $ P.map (tripToElement color strokeWidth (fx . localTimeOfDay) fy)
                                $ trips
                          )
                          lines
@@ -539,6 +541,6 @@ main = do
   setLocaleEncoding utf8
   (referenceTrack96, stations96) <- readReferenceTrackFromFile
   linesOneDay <- getAllVehiclesCached ["2020-06-18"] filter96
-  P.writeFile "2020-06-18_96.svg" $ P.show $ svg $ lineToElement stations96 referenceTrack96 linesOneDay
+  P.writeFile "2020-06-18_96.svg" $ P.show $ svg $ lineToElement "black" 1 stations96 referenceTrack96 linesOneDay
   lines <- getAllVehiclesCached days filter96
-  P.writeFile "all_days_96.svg" $ P.show $ svg $ lineToElement stations96 referenceTrack96 lines
+  P.writeFile "all_days_96.svg" $ P.show $ svg $ lineToElement "#cccccc" 4 stations96 referenceTrack96 lines
