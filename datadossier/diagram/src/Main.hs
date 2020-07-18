@@ -71,7 +71,9 @@ mapToTrack a b c =
       (acx, acy, acz) = vecSubtract (geoToVec a) (geoToVec c)
       abLength = vecLength (abx, aby, abz)
       res = (abx * acx + aby * acy + abz * acz) / abLength
-   in if 0 <= res && res <= abLength
+      -- We only accpt the mapping if it is on the track segment or at least
+      -- within 10 meters of it.
+   in if (-10) <= res && res <= (abLength + 10)
         then Just res
         else Nothing
 
@@ -542,5 +544,5 @@ main = do
   (referenceTrack96, stations96) <- readReferenceTrackFromFile
   linesOneDay <- getAllVehiclesCached ["2020-07-06"] filter96
   P.writeFile "2020-07-06_96.svg" $ P.show $ svg $ lineToElement "black" 1 stations96 referenceTrack96 linesOneDay
-  lines <- getAllVehiclesCached days filter96
-  P.writeFile "all_days_96.svg" $ P.show $ svg $ lineToElement "#cccccc" 4 stations96 referenceTrack96 lines
+  -- lines <- getAllVehiclesCached days filter96
+  -- P.writeFile "all_days_96.svg" $ P.show $ svg $ lineToElement "#cccccc" 4 stations96 referenceTrack96 lines
