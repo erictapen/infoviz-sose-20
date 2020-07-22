@@ -71,9 +71,9 @@ mapToTrack a b c =
       (acx, acy, acz) = vecSubtract (geoToVec a) (geoToVec c)
       abLength = vecLength (abx, aby, abz)
       res = (abx * acx + aby * acy + abz * acz) / abLength
-      -- We only accpt the mapping if it is on the track segment or at least
+   in -- We only accpt the mapping if it is on the track segment or at least
       -- within 10 meters of it.
-   in if (-10) <= res && res <= (abLength + 10)
+      if (-10) <= res && res <= (abLength + 10)
         then Just res
         else Nothing
 
@@ -301,7 +301,7 @@ enrichTrackWithLength m (x : next : xs) =
 -- document root
 svg :: Element -> Element
 svg content =
-  let width = 8640 + 50 + 20 + 20
+  let width = diagramWidth + 50 + 20 + 20
       height = 200 + 20 + 20
    in doctype
         <> Graphics.Svg.with
@@ -310,6 +310,18 @@ svg content =
             Width_ <<- (toText width),
             Height_ <<- (toText height),
             ViewBox_ <<- "0 0 " <> (toText width) <> " " <> (toText height)
+          ]
+
+svgInner :: Element -> Element
+svgInner content =
+  let height = 200
+   in doctype
+        <> Graphics.Svg.with
+          (svg11_ content)
+          [ Version_ <<- "1.1",
+            Width_ <<- (toText diagramWidth),
+            Height_ <<- (toText height),
+            ViewBox_ <<- "0 0 " <> (toText diagramWidth) <> " " <> (toText height)
           ]
 
 -- | Seconds from midnight on a TimeOfDay
@@ -366,30 +378,24 @@ tripToElement' fx fy ((t, v) : ds) = case (fy v) of
   Nothing -> tripToElement' fx fy ds
 
 -- | Transforms a Line to an SVG ELement.
-lineToElement :: Text -> Double -> [(Text, GeoCoord)] -> ReferenceTrack -> [Line] -> Element
-lineToElement color strokeWidth stations referenceTrack lines =
-  let fx t = (*) 0.1 $ seconds t
-      fy v = fmap (200 *) $ locateCoordOnTrackLength referenceTrack v
-   in g_
-        [ Transform_ <<- translate 20 20
-        ]
-        $ (yLegend fy stations)
-          <> (xLegend fx)
-          <> g_
-            [ Id_ <<- "diagram",
-              Transform_ <<- translate 50 0
-            ]
-            ( styleElement
-                <> ( P.mconcat $
-                       P.map
-                         ( \(Main.Line lineId trips) ->
-                             P.mconcat
-                               $ P.map (tripToElement color strokeWidth (fx . localTimeOfDay) fy)
-                               $ trips
-                         )
-                         lines
+lineToElement :: Text -> Double -> ReferenceTrack -> [Line] -> Element
+lineToElement color strokeWidth referenceTrack lines =
+  svgInner $
+    g_
+      [ Id_ <<- "diagram",
+        Transform_ <<- translate 50 0
+      ]
+      ( styleElement
+          <> ( P.mconcat $
+                 P.map
+                   ( \(Main.Line lineId trips) ->
+                       P.mconcat
+                         $ P.map (tripToElement color strokeWidth (placeOnX . localTimeOfDay) (placeOnY referenceTrack))
+                         $ trips
                    )
-            )
+                   lines
+             )
+      )
 
 formatTime :: TimeOfDay -> Text
 formatTime t =
@@ -447,7 +453,7 @@ yLegend fy ((label, coord) : stations) =
             <> line_
               [ X1_ <<- (toText 50),
                 Y1_ <<- (toText yPos),
-                X2_ <<- (toText (8640 + 50)),
+                X2_ <<- (toText (diagramWidth + 50)),
                 Y2_ <<- (toText yPos),
                 Stroke_ <<- "#C0C0C0",
                 Stroke_width_ <<- "0.5"
@@ -538,11 +544,36 @@ days =
 styleElement :: Element
 styleElement = style_ [] "path { mix-blend-mode: multiply; }"
 
+placeOnX :: TimeOfDay -> Double
+placeOnX t = (*) 0.1 $ seconds t
+
+placeOnY :: ReferenceTrack -> GeoCoord -> Maybe Double
+placeOnY refTrack v = fmap (200 *) $ locateCoordOnTrackLength refTrack v
+
+graphicWithLegends :: FilePath -> ReferenceTrack -> [(Text, GeoCoord)] -> Element
+graphicWithLegends diagramPath refTrack stations =
+  g_ [] $
+    (yLegend (placeOnY refTrack) stations)
+      <> (xLegend placeOnX)
+      <> image_
+        [ X_ <<- (toText 40),
+          Y_ <<- (toText 40),
+          Width_ <<- (toText diagramWidth),
+          Height_ <<- (toText 200),
+          XlinkHref_ <<- (TS.pack diagramPath)
+        ]
+
+-- | One pixel resolution for ten seconds, as we took samples this frequent.
+diagramWidth :: Double
+diagramWidth = 6 * 60 * 24
+
 main :: IO ()
 main = do
   setLocaleEncoding utf8
   (referenceTrack96, stations96) <- readReferenceTrackFromFile
   linesOneDay <- getAllVehiclesCached ["2020-07-06"] filter96
-  P.writeFile "2020-07-06_96.svg" $ P.show $ svg $ lineToElement "black" 1 stations96 referenceTrack96 linesOneDay
-  -- lines <- getAllVehiclesCached days filter96
-  -- P.writeFile "all_days_96.svg" $ P.show $ svg $ lineToElement "#cccccc" 4 stations96 referenceTrack96 lines
+  P.writeFile "2020-07-06_96_diagram.svg" $ P.show $ lineToElement "black" 1 referenceTrack96 linesOneDay
+  P.writeFile "2020-07-06_96.svg" $ P.show $ svg $ graphicWithLegends "2020-07-06_96_diagram.png" referenceTrack96 stations96
+  lines <- getAllVehiclesCached days filter96
+  P.writeFile "all_days_96_diagram.svg" $ P.show $ lineToElement "#cccccc" 4 referenceTrack96 lines
+  P.writeFile "all_days_96.svg" $ P.show $ svg $ graphicWithLegends "all_days_96_diagram.png" referenceTrack96 stations96
