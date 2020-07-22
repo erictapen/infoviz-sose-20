@@ -388,24 +388,35 @@ placeOnY :: ReferenceTrack -> GeoCoord -> Maybe Double
 placeOnY refTrack v = fmap (200 *) $ locateCoordOnTrackLength refTrack v
 
 -- | Transforms a Line to an SVG ELement.
-lineToElement :: Text -> Double -> ReferenceTrack -> [Line] -> Element
-lineToElement color strokeWidth referenceTrack lines =
-  svgInner $
-    g_
-      [ Id_ <<- "diagram",
-        Transform_ <<- translate 50 0
-      ]
-      ( (style_ [] "path { mix-blend-mode: multiply; }")
-          <> ( P.mconcat $
-                 P.map
-                   ( \(Main.Line lineId trips) ->
-                       P.mconcat
-                         $ P.map (tripToElement color strokeWidth (placeOnX . localTimeOfDay) (placeOnY referenceTrack))
-                         $ trips
+diagramCached :: FilePath -> Text -> Double -> ReferenceTrack -> [String] -> IO ()
+diagramCached filePath color strokeWidth referenceTrack days =
+  let cachePath = "./cache/" <> filePath
+      document :: [Line] -> Element
+      document lines =
+        svgInner $
+          g_
+            [ Id_ <<- "diagram",
+              Transform_ <<- translate 50 0
+            ]
+            ( (style_ [] "path { mix-blend-mode: multiply; }")
+                <> ( P.mconcat $
+                       P.map
+                         ( \(Main.Line lineId trips) ->
+                             P.mconcat
+                               $ P.map (tripToElement color strokeWidth (placeOnX . localTimeOfDay) (placeOnY referenceTrack))
+                               $ trips
+                         )
+                         lines
                    )
-                   lines
-             )
-      )
+            )
+   in do
+        fileExists <- doesFileExist cachePath
+        if fileExists
+          then P.putStrLn $ "Cache hit: " <> cachePath
+          else do
+            P.putStrLn $ "Cache miss: " <> cachePath
+            linesOneDay <- getAllVehiclesCached days filter96
+            P.writeFile cachePath $ P.show $ document linesOneDay
 
 formatTime :: TimeOfDay -> Text
 formatTime t =
@@ -568,9 +579,13 @@ main :: IO ()
 main = do
   setLocaleEncoding utf8
   (referenceTrack96, stations96) <- readReferenceTrackFromFile
-  linesOneDay <- getAllVehiclesCached ["2020-07-06"] filter96
-  P.writeFile "2020-07-06_96_diagram.svg" $ P.show $ lineToElement "black" 1 referenceTrack96 linesOneDay
-  P.writeFile "2020-07-06_96.svg" $ P.show $ svg $ graphicWithLegends "2020-07-06_96_diagram.png" referenceTrack96 stations96
-  lines <- getAllVehiclesCached days filter96
-  P.writeFile "all_days_96_diagram.svg" $ P.show $ lineToElement "#cccccc" 4 referenceTrack96 lines
-  P.writeFile "all_days_96.svg" $ P.show $ svg $ graphicWithLegends "all_days_96_diagram.png" referenceTrack96 stations96
+  diagramCached "2020-07-06_96_diagram.svg" "black" 1 referenceTrack96 ["2020-07-06"]
+  P.writeFile "2020-07-06_96.svg"
+    $ P.show
+    $ svg
+    $ graphicWithLegends "cache/2020-07-06_96_diagram.svg.png" referenceTrack96 stations96
+  diagramCached "all_days_96_diagram.svg" "#cccccc" 4 referenceTrack96 days
+  P.writeFile "all_days_96.svg"
+    $ P.show
+    $ svg
+    $ graphicWithLegends "cache/all_days_96_diagram.svg.png" referenceTrack96 stations96
