@@ -583,9 +583,9 @@ main = do
   P.writeFile "2020-07-06_96.svg"
     $ P.show
     $ svg
-    $ graphicWithLegends "cache/2020-07-06_96_diagram.svg.png" referenceTrack96 stations96
+    $ graphicWithLegends "cache/2020-07-06_96_diagram.svg.jpeg" referenceTrack96 stations96
   diagramCached "all_days_96_diagram.svg" "#cccccc" 4 referenceTrack96 days
   P.writeFile "all_days_96.svg"
     $ P.show
     $ svg
-    $ graphicWithLegends "cache/all_days_96_diagram.svg.png" referenceTrack96 stations96
+    $ graphicWithLegends "cache/all_days_96_diagram.svg.jpeg" referenceTrack96 stations96
