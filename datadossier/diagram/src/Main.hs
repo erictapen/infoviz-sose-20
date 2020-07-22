@@ -298,6 +298,10 @@ enrichTrackWithLength m (x : []) = (m, x) : []
 enrichTrackWithLength m (x : next : xs) =
   (m, x) : (enrichTrackWithLength (m + distance x next) (next : xs))
 
+-- | One pixel resolution for ten seconds, as we took samples this frequent.
+diagramWidth :: Double
+diagramWidth = 6 * 60 * 24
+
 -- document root
 svg :: Element -> Element
 svg content =
@@ -377,6 +381,12 @@ tripToElement' fx fy ((t, v) : ds) = case (fy v) of
   Just y -> lA (fx t) y <> tripToElement' fx fy ds
   Nothing -> tripToElement' fx fy ds
 
+placeOnX :: TimeOfDay -> Double
+placeOnX t = (*) 0.1 $ seconds t
+
+placeOnY :: ReferenceTrack -> GeoCoord -> Maybe Double
+placeOnY refTrack v = fmap (200 *) $ locateCoordOnTrackLength refTrack v
+
 -- | Transforms a Line to an SVG ELement.
 lineToElement :: Text -> Double -> ReferenceTrack -> [Line] -> Element
 lineToElement color strokeWidth referenceTrack lines =
@@ -385,7 +395,7 @@ lineToElement color strokeWidth referenceTrack lines =
       [ Id_ <<- "diagram",
         Transform_ <<- translate 50 0
       ]
-      ( styleElement
+      ( (style_ [] "path { mix-blend-mode: multiply; }")
           <> ( P.mconcat $
                  P.map
                    ( \(Main.Line lineId trips) ->
@@ -541,15 +551,6 @@ days =
     "2020-07-16"
   ]
 
-styleElement :: Element
-styleElement = style_ [] "path { mix-blend-mode: multiply; }"
-
-placeOnX :: TimeOfDay -> Double
-placeOnX t = (*) 0.1 $ seconds t
-
-placeOnY :: ReferenceTrack -> GeoCoord -> Maybe Double
-placeOnY refTrack v = fmap (200 *) $ locateCoordOnTrackLength refTrack v
-
 graphicWithLegends :: FilePath -> ReferenceTrack -> [(Text, GeoCoord)] -> Element
 graphicWithLegends diagramPath refTrack stations =
   g_ [] $
@@ -562,10 +563,6 @@ graphicWithLegends diagramPath refTrack stations =
           Height_ <<- (toText 200),
           XlinkHref_ <<- (TS.pack diagramPath)
         ]
-
--- | One pixel resolution for ten seconds, as we took samples this frequent.
-diagramWidth :: Double
-diagramWidth = 6 * 60 * 24
 
 main :: IO ()
 main = do
