@@ -349,6 +349,7 @@ tripToElement ::
 tripToElement _ _ _ _ (_, []) = mempty
 -- For Trips with a single point we draw a circle instead of a path, as otherwise the path wouldn't be visible.
 tripToElement color strokeWidth fx fy (_, (t, v) : []) = case (fy v) of
+  Nothing -> mempty
   Just y ->
     circle_
       [ Cx_ <<- (toText $ fx t),
@@ -357,8 +358,8 @@ tripToElement color strokeWidth fx fy (_, (t, v) : []) = case (fy v) of
         Stroke_ <<- "none",
         Fill_ <<- color
       ]
-  Nothing -> mempty
 tripToElement color strokeWidth fx fy (tripId, (t, v) : tripData) = case (fy v) of
+  Nothing -> tripToElement color strokeWidth fx fy (tripId, tripData)
   Just y ->
     path_
       [ D_ <<- (mA (fx t) y <> (tripToElement' fx fy tripData)),
@@ -368,7 +369,6 @@ tripToElement color strokeWidth fx fy (tripId, (t, v) : tripData) = case (fy v) 
         Stroke_linecap_ <<- "round",
         Id_ <<- ((<>) "trip" $ TS.pack $ P.show tripId)
       ]
-  Nothing -> tripToElement color strokeWidth fx fy (tripId, tripData)
 
 -- | Recursively generate the tail of the path elements.
 tripToElement' ::
@@ -394,21 +394,22 @@ diagramCached filePath color strokeWidth referenceTrack days =
       document :: [Line] -> Element
       document lines =
         svgInner $
-          g_
-            [ Id_ <<- "diagram",
-              Transform_ <<- translate 50 0
-            ]
-            ( (style_ [] "path { mix-blend-mode: multiply; }")
-                <> ( P.mconcat $
-                       P.map
-                         ( \(Main.Line lineId trips) ->
-                             P.mconcat
-                               $ P.map (tripToElement color strokeWidth (placeOnX . localTimeOfDay) (placeOnY referenceTrack))
-                               $ trips
-                         )
-                         lines
-                   )
-            )
+          (style_ [] "path { mix-blend-mode: multiply; }")
+            <> ( P.mconcat $
+                   P.map
+                     ( \(Main.Line lineId trips) ->
+                         P.mconcat
+                           $ P.map
+                             ( tripToElement
+                                 color
+                                 strokeWidth
+                                 (placeOnX . localTimeOfDay)
+                                 (placeOnY referenceTrack)
+                             )
+                           $ trips
+                     )
+                     lines
+               )
    in do
         fileExists <- doesFileExist cachePath
         if fileExists
@@ -434,7 +435,7 @@ xLegend fx =
     P.map
       ( \t ->
           ( text_
-              [ X_ <<- (toText ((fx t) + 50)),
+              [ X_ <<- (toText (fx t)),
                 Y_ <<- (toText (-5)),
                 Font_family_ <<- "Fira Sans",
                 Text_anchor_ <<- "middle",
@@ -445,8 +446,8 @@ xLegend fx =
               $ formatTime t
           )
             <> line_
-              [ X1_ <<- (toText ((fx t) + 50)),
-                X2_ <<- (toText ((fx t) + 50)),
+              [ X1_ <<- (toText (fx t)),
+                X2_ <<- (toText (fx t)),
                 Y1_ <<- (toText (-3)),
                 Y2_ <<- (toText (-1)),
                 Stroke_ <<- "black",
@@ -462,7 +463,7 @@ yLegend fy ((label, coord) : stations) =
       Nothing -> mempty
       (Just yPos) ->
         ( ( text_
-              [ X_ <<- (toText (50 - 1)),
+              [ X_ <<- (toText (- 1)),
                 Y_ <<- (toText (yPos + 1)),
                 Font_family_ <<- "Fira Sans",
                 Text_anchor_ <<- "end",
@@ -472,9 +473,9 @@ yLegend fy ((label, coord) : stations) =
               $ toElement label
           )
             <> line_
-              [ X1_ <<- (toText 50),
+              [ X1_ <<- (toText 0),
                 Y1_ <<- (toText yPos),
-                X2_ <<- (toText (diagramWidth + 50)),
+                X2_ <<- (toText (diagramWidth)),
                 Y2_ <<- (toText yPos),
                 Stroke_ <<- "#C0C0C0",
                 Stroke_width_ <<- "0.5"
@@ -564,16 +565,19 @@ days =
 
 graphicWithLegends :: FilePath -> ReferenceTrack -> [(Text, GeoCoord)] -> Element
 graphicWithLegends diagramPath refTrack stations =
-  g_ [] $
-    (yLegend (placeOnY refTrack) stations)
+  g_
+    [ Transform_ <<- translate 50 20
+    ]
+    $ ( image_
+          [ X_ <<- (toText 0),
+            Y_ <<- (toText 0),
+            Width_ <<- (toText diagramWidth),
+            Height_ <<- (toText 200),
+            XlinkHref_ <<- (TS.pack diagramPath)
+          ]
+      )
+      <> (yLegend (placeOnY refTrack) stations)
       <> (xLegend placeOnX)
-      <> image_
-        [ X_ <<- (toText 40),
-          Y_ <<- (toText 40),
-          Width_ <<- (toText diagramWidth),
-          Height_ <<- (toText 200),
-          XlinkHref_ <<- (TS.pack diagramPath)
-        ]
 
 main :: IO ()
 main = do
