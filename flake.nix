@@ -24,8 +24,10 @@
               > "$dir/$(date --iso-8601=seconds).json.gz"
           '';
         diagram = pkgs.stdenv.mkDerivation {
+
           name = "diagram";
           src = ./datadossier/diagram;
+
           buildInputs = with pkgs; [
             (
               haskellPackages.ghcWithPackages (
@@ -42,14 +44,20 @@
               )
             )
             zlib
+            inkscape
+            imagemagick
           ];
+
           buildPhase = ''
+            patchShebangs .
             ghc -O2 -o Main src/Main.hs
             ./Main
+            ./jpeg.sh
           '';
+
           installPhase = ''
             mkdir -p $out
-            mv *.svg $out/
+            mv *.svg cache/*.svg cache/*.jpeg $out/
           '';
         };
         datadossier-website = let
@@ -64,13 +72,17 @@
             cd $src
             cp style.css $out/
             cp images/* $out/images/
-            ln -s ${diagram}/2020-07-06_96.svg $out/images/2020-07-06_96.svg
-            ln -s ${diagram}/all_days_96.svg $out/images/all_days_96.svg
+            ln -s ${diagram}/2020-07-06_96.svg \
+              ${diagram}/2020-07-06_96_diagram.svg \
+              ${diagram}/2020-07-06_96_diagram.svg.jpeg $out/images/
+            ln -s ${diagram}/all_days_96.svg \
+              ${diagram}/all_days_96_diagram.svg \
+              ${diagram}/all_days_96_diagram.svg.jpeg $out/images/
             pandoc -o $out/index.html --standalone --css style.css --webtex index.markdown
           '';
       };
 
-      defaultPackage.x86_64-linux = self.packages.x86_64-linux.vbb-crawler;
+      defaultPackage.x86_64-linux = self.packages.x86_64-linux.datadossier-website;
 
       nixosModules.vbb-crawler = import datadossier/crawler/module.nix;
     };

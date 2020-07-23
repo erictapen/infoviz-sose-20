@@ -19,5 +19,7 @@ pkgs.mkShell {
     stack
     ormolu # haskell code formatting
     zlib
+    inkscape
+    imagemagick
   ];
 }
