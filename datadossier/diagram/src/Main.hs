@@ -4,6 +4,9 @@
 
 import Codec.Compression.GZip as GZ
 import Control.Monad.Trans.Resource
+import Control.Parallel.Strategies
+import Control.DeepSeq
+import Control.Concurrent
 import Data.Aeson as Aeson
 import Data.ByteString.Lazy as BL
 import Data.Functor
@@ -418,6 +421,9 @@ diagramCached filePath color strokeWidth referenceTrack days =
             P.putStrLn $ "Cache miss: " <> cachePath
             linesOneDay <- getAllVehiclesCached days filter96
             P.writeFile cachePath $ P.show $ document linesOneDay
+
+instance NFData Element where
+  rnf e = e `seq` ()
 
 formatTime :: TimeOfDay -> Text
 formatTime t =

@@ -13,6 +13,7 @@ pkgs.mkShell {
           hcoord
           svg-builder
           streaming-osm
+          parallel
         ]
       )
     )
