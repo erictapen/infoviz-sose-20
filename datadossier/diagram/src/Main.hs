@@ -599,5 +599,7 @@ main = do
   (referenceTrack96, stations96) <- readReferenceTrackFromFile
   diagramCached "2020-07-06_96_diagram.svg" "black" 1 referenceTrack96 ["2020-07-06"]
   graphicWithLegends "2020-07-06_96_diagram.svg" referenceTrack96 stations96 "2020-07-06_96.svg"
-  diagramCached "all_days_96_diagram.svg" "#cccccc" 4 referenceTrack96 days
+  diagramCached "all_days_96_diagram.svg" "black" 1 referenceTrack96 days
   graphicWithLegends "all_days_96_diagram.svg" referenceTrack96 stations96 "all_days_96.svg"
+  diagramCached "all_days_blended_96_diagram.svg" "#cccccc" 4 referenceTrack96 days
+  graphicWithLegends "all_days_blended_96_diagram.svg" referenceTrack96 stations96 "all_days_blended_96.svg"
