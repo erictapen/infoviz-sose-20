@@ -345,3 +345,8 @@ Anyway, it's quite annoying to find out about the true nature of the raw data th
 
 In the end I'd say that this attempt still was a success. The delay information is the most accurate one can get, given that the HAFAS API is the only interface available. It might not have 1 second but 60 second precision, but it still allows for some neat insights. Especially when one blends the individual days into each other, so that delay distributions become visible.
 
+<div>
+  <div id="scroll-diagram"><img style="height: 30em" src="images/all_days_96.svg"/>
+  </div>
+</div>
+

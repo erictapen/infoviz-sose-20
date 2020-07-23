@@ -40,6 +40,8 @@
                   hcoord
                   svg-builder
                   streaming-osm
+                  parallel
+                  base64
                 ]
               )
             )
@@ -52,7 +54,6 @@
             patchShebangs .
             ghc -O2 -o Main src/Main.hs
             ./Main
-            ./jpeg.sh
           '';
 
           installPhase = ''
@@ -72,12 +73,8 @@
             cd $src
             cp style.css $out/
             cp images/* $out/images/
-            ln -s ${diagram}/2020-07-06_96.svg \
-              ${diagram}/2020-07-06_96_diagram.svg \
-              ${diagram}/2020-07-06_96_diagram.svg.jpeg $out/images/
-            ln -s ${diagram}/all_days_96.svg \
-              ${diagram}/all_days_96_diagram.svg \
-              ${diagram}/all_days_96_diagram.svg.jpeg $out/images/
+            ln -s ${diagram}/2020-07-06_96.svg $out/images/
+            ln -s ${diagram}/all_days_96.svg $out/images/
             pandoc -o $out/index.html --standalone --css style.css --webtex index.markdown
           '';
       };

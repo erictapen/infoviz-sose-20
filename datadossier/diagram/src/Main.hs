@@ -3,12 +3,13 @@
 {-# LANGUAGE RecordWildCards #-}
 
 import Codec.Compression.GZip as GZ
+import Control.Concurrent
+import Control.DeepSeq
 import Control.Monad.Trans.Resource
 import Control.Parallel.Strategies
-import Control.DeepSeq
-import Control.Concurrent
 import Data.Aeson as Aeson
 import Data.ByteString.Lazy as BL
+import Data.ByteString as BS
 import Data.Functor
 import Data.Geospatial
 import Data.IntMap.Strict as IntMap
@@ -18,6 +19,7 @@ import Data.Maybe
 import Data.Text as TS
 import Data.Text.IO as TSIO
 import Data.Time.LocalTime
+import Data.ByteString.Base64
 import GHC.Generics
 import GHC.IO.Encoding
 import Graphics.Svg
@@ -26,6 +28,7 @@ import Streaming.Osm.Types
 import Streaming.Prelude as S
 import System.Directory
 import System.IO
+import System.Process
 import Prelude as P
 
 -- | Earth radius in meters
@@ -180,7 +183,7 @@ getAllVehiclesCached (day : days) (Filter filterName vehicleFilter) =
         nextLine <- getAllVehiclesCached days (Filter filterName vehicleFilter)
         if fileExists
           then do
-            TSIO.putStrLn $ "Cache hit: " <> cacheName
+            TSIO.putStrLn $ "Cache hit:  " <> cacheName
             cacheContent <- BL.readFile cachePath
             case (Aeson.eitherDecode cacheContent) of
               (Right res) -> do
@@ -416,7 +419,7 @@ diagramCached filePath color strokeWidth referenceTrack days =
    in do
         fileExists <- doesFileExist cachePath
         if fileExists
-          then P.putStrLn $ "Cache hit: " <> cachePath
+          then P.putStrLn $ "Cache hit:  " <> cachePath
           else do
             P.putStrLn $ "Cache miss: " <> cachePath
             linesOneDay <- getAllVehiclesCached days filter96
@@ -509,7 +512,7 @@ extractReferenceTrackCached =
         fileExists <- doesFileExist cachePath
         if fileExists
           then do
-            TSIO.putStrLn $ "Cache hit: " <> TS.pack cachePath
+            TSIO.putStrLn $ "Cache hit:  " <> TS.pack cachePath
             cacheContent <- BL.readFile cachePath
             return $ fromJust $ Aeson.decode cacheContent
           else do
@@ -569,17 +572,22 @@ days =
     "2020-07-16"
   ]
 
-graphicWithLegends :: FilePath -> ReferenceTrack -> [(Text, GeoCoord)] -> Element
-graphicWithLegends diagramPath refTrack stations =
-  g_
-    [ Transform_ <<- translate 50 20
-    ]
+graphicWithLegends :: FilePath -> ReferenceTrack -> [(Text, GeoCoord)] -> FilePath -> IO ()
+graphicWithLegends diagramPath refTrack stations outFile = do
+  readProcess "./jpeg.sh" [("cache/" <> diagramPath)] ""
+  jpegContent <- BS.readFile $ "cache/" <> diagramPath <> ".jpeg"
+  P.writeFile outFile
+    $ P.show
+    $ svg
+    $ g_
+      [ Transform_ <<- translate 50 20
+      ]
     $ ( image_
           [ X_ <<- (toText 0),
             Y_ <<- (toText 0),
             Width_ <<- (toText diagramWidth),
             Height_ <<- (toText 200),
-            XlinkHref_ <<- (TS.pack diagramPath)
+            XlinkHref_ <<- ("data:image/jpeg;base64," <> encodeBase64 jpegContent)
           ]
       )
       <> (yLegend (placeOnY refTrack) stations)
@@ -590,12 +598,6 @@ main = do
   setLocaleEncoding utf8
   (referenceTrack96, stations96) <- readReferenceTrackFromFile
   diagramCached "2020-07-06_96_diagram.svg" "black" 1 referenceTrack96 ["2020-07-06"]
-  P.writeFile "2020-07-06_96.svg"
-    $ P.show
-    $ svg
-    $ graphicWithLegends "2020-07-06_96_diagram.svg.jpeg" referenceTrack96 stations96
+  graphicWithLegends "2020-07-06_96_diagram.svg" referenceTrack96 stations96 "2020-07-06_96.svg"
   diagramCached "all_days_96_diagram.svg" "#cccccc" 4 referenceTrack96 days
-  P.writeFile "all_days_96.svg"
-    $ P.show
-    $ svg
-    $ graphicWithLegends "all_days_96_diagram.svg.jpeg" referenceTrack96 stations96
+  graphicWithLegends "all_days_96_diagram.svg" referenceTrack96 stations96 "all_days_96.svg"

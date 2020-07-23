@@ -14,6 +14,7 @@ pkgs.mkShell {
           svg-builder
           streaming-osm
           parallel
+          base64
         ]
       )
     )
