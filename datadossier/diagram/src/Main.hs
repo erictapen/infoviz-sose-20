@@ -8,8 +8,9 @@ import Control.DeepSeq
 import Control.Monad.Trans.Resource
 import Control.Parallel.Strategies
 import Data.Aeson as Aeson
-import Data.ByteString.Lazy as BL
 import Data.ByteString as BS
+import Data.ByteString.Base64
+import Data.ByteString.Lazy as BL
 import Data.Functor
 import Data.Geospatial
 import Data.IntMap.Strict as IntMap
@@ -19,7 +20,6 @@ import Data.Maybe
 import Data.Text as TS
 import Data.Text.IO as TSIO
 import Data.Time.LocalTime
-import Data.ByteString.Base64
 import GHC.Generics
 import GHC.IO.Encoding
 import Graphics.Svg
@@ -493,8 +493,6 @@ yLegend fy ((label, coord) : stations) =
   )
     <> yLegend fy stations
 
--- | This code is never used, but maybe when
--- https://github.com/fosskers/streaming-osm/issues/3 is resolved?
 extractReferenceTrackCached :: IO [ReferenceTrack]
 extractReferenceTrackCached =
   let dataPath = "raw/brandenburg-latest.osm.pbf"
@@ -506,8 +504,13 @@ extractReferenceTrackCached =
       filterWays :: [Int] -> Way -> Bool
       filterWays ids (Way {_winfo = Nothing}) = False
       filterWays ids (Way {_winfo = Just (Info {_id = wayId})}) = P.elem wayId ids
-      osmToRefTrack :: Relation -> ReferenceTrack
-      osmToRefTrack _ = [] -- TODO
+      filterNodes :: [Int] -> Node -> Bool
+      filterNodes ids (Node {_ninfo = Nothing}) = False
+      filterNodes ids (Node {_ninfo = Just (Info {_id = nodeId})}) = P.elem nodeId ids
+
+      osmToRefTrack :: [Node] -> ReferenceTrack
+      osmToRefTrack [] = []
+      osmToRefTrack (node:nodes) = (0, (_lat node, _lng node)):(osmToRefTrack nodes)
    in do
         fileExists <- doesFileExist cachePath
         if fileExists
@@ -517,12 +520,36 @@ extractReferenceTrackCached =
             return $ fromJust $ Aeson.decode cacheContent
           else do
             TSIO.putStrLn $ "Cache miss: " <> TS.pack cachePath
-            osmRelations <- runResourceT . toList_ . S.filter filterRelations $ relations . blocks $ blobs dataPath
+            osmRelations <-
+              runResourceT
+                . toList_
+                . S.filter filterRelations
+                $ relations . blocks
+                $ blobs dataPath
             TSIO.putStrLn $ TS.pack $ P.show osmRelations
-            let referenceTracks = P.map osmToRefTrack osmRelations
+            osmWays <-
+              runResourceT
+                . toList_
+                . S.filter (filterWays $ P.map _mref $ _members $ P.head osmRelations)
+                $ ways . blocks
+                $ blobs dataPath
+            TSIO.putStrLn $ TS.pack $ P.show osmWays
+            osmNodes <- 
+              runResourceT
+                . toList_
+                . S.filter (filterNodes $ P.concat $ P.map _nodeRefs osmWays)
+                $ nodes . blocks
+                $ blobs dataPath
+            TSIO.putStrLn $ TS.pack $ P.show $ P.length osmNodes
+            let referenceTrack = osmToRefTrack osmNodes
              in do
                   -- BL.writeFile cachePath $ Aeson.encode referenceTracks
-                  return referenceTracks
+                  return [referenceTrack]
+
+main :: IO ()
+main = do
+  refs <- extractReferenceTrackCached
+  P.putStrLn $ P.show refs
 
 -- | Show a line as an CSV table, just a helper function I'll not use often.
 printCSV :: Line -> String
@@ -593,13 +620,13 @@ graphicWithLegends diagramPath refTrack stations outFile = do
       <> (yLegend (placeOnY refTrack) stations)
       <> (xLegend placeOnX)
 
-main :: IO ()
-main = do
-  setLocaleEncoding utf8
-  (referenceTrack96, stations96) <- readReferenceTrackFromFile
-  diagramCached "2020-07-06_96_diagram.svg" "black" 1 referenceTrack96 ["2020-07-06"]
-  graphicWithLegends "2020-07-06_96_diagram.svg" referenceTrack96 stations96 "2020-07-06_96.svg"
-  diagramCached "all_days_96_diagram.svg" "black" 1 referenceTrack96 days
-  graphicWithLegends "all_days_96_diagram.svg" referenceTrack96 stations96 "all_days_96.svg"
-  diagramCached "all_days_blended_96_diagram.svg" "#cccccc" 4 referenceTrack96 days
-  graphicWithLegends "all_days_blended_96_diagram.svg" referenceTrack96 stations96 "all_days_blended_96.svg"
+-- main :: IO ()
+-- main = do
+--   setLocaleEncoding utf8
+--   (referenceTrack96, stations96) <- readReferenceTrackFromFile
+--   diagramCached "2020-07-06_96_diagram.svg" "black" 1 referenceTrack96 ["2020-07-06"]
+--   graphicWithLegends "2020-07-06_96_diagram.svg" referenceTrack96 stations96 "2020-07-06_96.svg"
+--   diagramCached "all_days_96_diagram.svg" "black" 1 referenceTrack96 days
+--   graphicWithLegends "all_days_96_diagram.svg" referenceTrack96 stations96 "all_days_96.svg"
+--   diagramCached "all_days_blended_96_diagram.svg" "#cccccc" 4 referenceTrack96 days
+--   graphicWithLegends "all_days_blended_96_diagram.svg" referenceTrack96 stations96 "all_days_blended_96.svg"
