@@ -522,7 +522,7 @@ extractReferenceTrackCached =
             TSIO.putStrLn $ "Cache miss: " <> TS.pack cachePath
             osmRelations <-
               runResourceT
-                . toList_
+                . S.head
                 . S.filter filterRelations
                 $ relations . blocks
                 $ blobs dataPath
@@ -530,7 +530,7 @@ extractReferenceTrackCached =
             osmWays <-
               runResourceT
                 . toList_
-                . S.filter (filterWays $ P.map _mref $ _members $ P.head osmRelations)
+                . S.filter (filterWays $ P.map _mref $ _members $ fromJust $ fst' osmRelations)
                 $ ways . blocks
                 $ blobs dataPath
             TSIO.putStrLn $ TS.pack $ P.show osmWays
