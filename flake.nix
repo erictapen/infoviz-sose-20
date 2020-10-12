@@ -1,93 +1,111 @@
 {
   description = "A very basic flake";
 
-  outputs = { self, nixpkgs }:
+  inputs = {
+    nixpkgs-mozilla = {
+      url = "github:mozilla/nixpkgs-mozilla";
+      flake = false;
+    };
+  };
+
+  outputs = { self, nixpkgs, nixpkgs-mozilla }:
     let
-      system = "x86_64-linux";
-      pkgs = import nixpkgs { inherit system; };
+      forAllSystems = f: nixpkgs.lib.genAttrs
+        [ "x86_64-linux" "i686-linux" "aarch64-linux" ]
+        (system: f system);
+      nixpkgsFor = forAllSystems (
+        system:
+        import nixpkgs {
+          inherit system;
+          overlays = [ (import nixpkgs-mozilla) ];
+        }
+      );
     in
     {
 
-      packages.x86_64-linux = rec {
-        vbb-crawler =
-          let
-            nodePackage = (
-              import ./datadossier/crawler {
-                inherit pkgs system;
-                inherit (pkgs) nodejs;
-              }
-            ).package;
-          in
-          pkgs.writeShellScriptBin "vbb-crawler.sh" ''
-            dir=$(date --iso-8601=date)
-            mkdir -p $dir
-            ${pkgs.nodejs}/bin/node ${nodePackage}/lib/node_modules/vbb-crawler/index.js \
-              | ${pkgs.gzip}/bin/gzip -c \
-              > "$dir/$(date --iso-8601=seconds).json.gz"
-          '';
-        diagram = pkgs.stdenv.mkDerivation {
-
-          name = "diagram";
-          src = ./datadossier/diagram;
-
-          buildInputs = with pkgs; [
-            (
-              haskellPackages.ghcWithPackages (
-                p: with p; [
-                  aeson
-                  zlib
-                  utf8-string
-                  geojson
-                  MissingH
-                  hcoord
-                  svg-builder
-                  streaming-osm
-                  parallel
-                  base64
-                ]
-              )
-            )
-            zlib
-            inkscape
-            imagemagick
-          ];
-
-          buildPhase = ''
-            patchShebangs .
-            ghc -O2 -o Main src/Main.hs
-            ./Main
-          '';
-
-          installPhase = ''
-            mkdir -p $out
-            mv *.svg cache/*.svg cache/*.jpeg $out/
-          '';
-        };
-        datadossier-website =
-          let
-            md = pkgs.copyPathToStore ./datadossier/website/index.markdown;
-            css = pkgs.copyPathToStore ./datadossier/website/style.css;
-          in
-          pkgs.runCommand "datadossier-website"
-            {
-              buildInputs = [ pkgs.pandoc ];
-              src = ./datadossier/website;
-            } ''
-            mkdir -p $out/images
-            cd $src
-            cp style.css $out/
-            cp images/* $out/images/
-            ln -s ${diagram}/2020-07-06_96.svg \
-              ${diagram}/all_days_96.svg \
-              ${diagram}/all_days_blended_96.svg \
-              $out/images/
-            pandoc -o $out/index.html --standalone --css style.css --webtex index.markdown
-          '';
-      };
-
-      devShell.x86_64-linux =
+      packages = forAllSystems (system:
         let
-          pkgs = import nixpkgs { system = "x86_64-linux"; };
+          pkgs = nixpkgsFor.${system};
+        in rec {
+          vbb-crawler =
+            let
+              nodePackage = (
+                import ./datadossier/crawler {
+                  inherit pkgs system;
+                  inherit (pkgs) nodejs;
+                }
+              ).package;
+            in
+            pkgs.writeShellScriptBin "vbb-crawler.sh" ''
+              dir=$(date --iso-8601=date)
+              mkdir -p $dir
+              ${pkgs.nodejs}/bin/node ${nodePackage}/lib/node_modules/vbb-crawler/index.js \
+                | ${pkgs.gzip}/bin/gzip -c \
+                > "$dir/$(date --iso-8601=seconds).json.gz"
+            '';
+          diagram = pkgs.stdenv.mkDerivation {
+
+            name = "diagram";
+            src = ./datadossier/diagram;
+
+            buildInputs = with pkgs; [
+              (
+                haskellPackages.ghcWithPackages (
+                  p: with p; [
+                    aeson
+                    zlib
+                    utf8-string
+                    geojson
+                    MissingH
+                    hcoord
+                    svg-builder
+                    streaming-osm
+                    parallel
+                    base64
+                  ]
+                )
+              )
+              zlib
+              inkscape
+              imagemagick
+            ];
+
+            buildPhase = ''
+              patchShebangs .
+              ghc -O2 -o Main src/Main.hs
+              ./Main
+            '';
+
+            installPhase = ''
+              mkdir -p $out
+              mv *.svg cache/*.svg cache/*.jpeg $out/
+            '';
+          };
+          datadossier-website =
+            let
+              md = pkgs.copyPathToStore ./datadossier/website/index.markdown;
+              css = pkgs.copyPathToStore ./datadossier/website/style.css;
+            in
+            pkgs.runCommand "datadossier-website"
+              {
+                buildInputs = [ pkgs.pandoc ];
+                src = ./datadossier/website;
+              } ''
+              mkdir -p $out/images
+              cd $src
+              cp style.css $out/
+              cp images/* $out/images/
+              ln -s ${diagram}/2020-07-06_96.svg \
+                ${diagram}/all_days_96.svg \
+                ${diagram}/all_days_blended_96.svg \
+                $out/images/
+              pandoc -o $out/index.html --standalone --css style.css --webtex index.markdown
+            '';
+        });
+
+      devShell = forAllSystems (system:
+        let
+          pkgs = nixpkgsFor.${system};
         in
         pkgs.mkShell {
           buildInputs = with pkgs; [
@@ -129,11 +147,17 @@
 
             # datadossier/reference-tracks
             cargo
-            rustc
+            (
+              (pkgs.rustChannelOf {
+                date = "2020-10-10";
+                channel = "nightly";
+                sha256 = "sha256-PLdvfPsf813gJu5UbcQv9+6zig3KZOvJHw0ZF1xvWoU=";
+              }).rust
+            )
           ];
-        };
+        });
 
-      defaultPackage.x86_64-linux = self.packages.x86_64-linux.datadossier-website;
+      defaultPackage = forAllSystems (system: self.packages.${system}.datadossier-website);
 
       nixosModules.vbb-crawler = import datadossier/crawler/module.nix;
     };
