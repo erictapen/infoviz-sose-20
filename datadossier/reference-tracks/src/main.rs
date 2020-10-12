@@ -96,14 +96,6 @@ fn main() {
                 break;
             }
         }
-        use std::io::prelude::*;
-        let mut file = File::create("96.csv").unwrap();
-        let mut counter: usize = 0;
-        for (lat, lon) in &res {
-            file.write_all(format!("{}, {}, {}\n", lat, lon, counter).as_bytes())
-                .unwrap();
-            counter += 1;
-        }
 
         // Every two neighbouring Way objects have one node as intersection, so we dedup.
         res.dedup();
