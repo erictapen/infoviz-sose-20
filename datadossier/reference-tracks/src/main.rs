@@ -121,6 +121,17 @@ fn main() {
         coordinates: sort_coordinates(coordinates),
         stations: stations,
     };
+
+    // Write all the coordinates to one csv file, just for debugging.
+    use std::io::prelude::*;
+    let mut file = File::create("96.csv").unwrap();
+    let mut counter: usize = 0;
+    for (lat, lon) in &reference_track.coordinates {
+        file.write_all(format!("{}, {}, {}\n", lat, lon, counter).as_bytes())
+            .unwrap();
+        counter += 1;
+    }
+
     let file = File::create("96.json").unwrap();
     serde_json::to_writer(file, &reference_track).unwrap();
 }
