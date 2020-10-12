@@ -26,7 +26,8 @@
       packages = forAllSystems (system:
         let
           pkgs = nixpkgsFor.${system};
-        in rec {
+        in
+        rec {
           vbb-crawler =
             let
               nodePackage = (
@@ -103,59 +104,62 @@
             '';
         });
 
-      devShell = forAllSystems (system:
-        let
-          pkgs = nixpkgsFor.${system};
-        in
-        pkgs.mkShell {
-          buildInputs = with pkgs; [
+      devShell = forAllSystems
+        (system:
+          let
+            pkgs = nixpkgsFor.${system};
+          in
+          pkgs.mkShell {
+            buildInputs = with pkgs; [
 
-            # 04-create-a-visualization
-            # jupyter
-            python3Packages.pandas
-            python3Packages.numpy
-            python3Packages.altair
-            python3Packages.SPARQLWrapper
-            python3Packages.matplotlib
+              # 04-create-a-visualization
+              # jupyter
+              python3Packages.pandas
+              python3Packages.numpy
+              python3Packages.altair
+              python3Packages.SPARQLWrapper
+              python3Packages.matplotlib
 
-            # datadossier/crawler
-            nodejs
-            nodePackages.node2nix
+              # datadossier/crawler
+              nodejs
+              nodePackages.node2nix
 
-            # datadossier/diagram
-            (
-              pkgs.haskellPackages.ghcWithPackages (
-                p: with p; [
-                  aeson
-                  zlib
-                  utf8-string
-                  geojson
-                  MissingH
-                  hcoord
-                  svg-builder
-                  streaming-osm
-                  parallel
-                  base64
-                ]
+              # datadossier/diagram
+              (
+                pkgs.haskellPackages.ghcWithPackages (
+                  p: with p; [
+                    aeson
+                    zlib
+                    utf8-string
+                    geojson
+                    MissingH
+                    hcoord
+                    svg-builder
+                    streaming-osm
+                    parallel
+                    base64
+                  ]
+                )
               )
-            )
-            stack
-            ormolu # haskell code formatting
-            zlib
-            inkscape
-            imagemagick
-
-            # datadossier/reference-tracks
-            cargo
-            (
-              (pkgs.rustChannelOf {
-                date = "2020-10-10";
-                channel = "nightly";
-                sha256 = "sha256-PLdvfPsf813gJu5UbcQv9+6zig3KZOvJHw0ZF1xvWoU=";
-              }).rust
-            )
-          ];
-        });
+              stack
+              ormolu # haskell code formatting
+              zlib
+              inkscape
+              imagemagick
+            ] ++ (
+              let
+                rustUnstable = (pkgs.rustChannelOf {
+                  date = "2020-10-10";
+                  channel = "nightly";
+                  sha256 = "sha256-PLdvfPsf813gJu5UbcQv9+6zig3KZOvJHw0ZF1xvWoU=";
+                });
+              in
+              [
+                rustUnstable.cargo
+                rustUnstable.rust
+              ]
+            );
+          });
 
       defaultPackage = forAllSystems (system: self.packages.${system}.datadossier-website);
 
