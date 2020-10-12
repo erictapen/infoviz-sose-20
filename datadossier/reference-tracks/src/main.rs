@@ -22,8 +22,8 @@ type Station = (String, Coordinate);
 /// Get the specified relation from objects, determine all the ways (which consist of coordinates)
 /// and stations (nodes that have a string associated with them).
 fn determine_coordinates_and_stations(
-    objects: BTreeMap<OsmId, OsmObj>,
-    track_id: OsmId,
+    objects: &BTreeMap<OsmId, OsmObj>,
+    track_id: &OsmId,
 ) -> (Vec<Coordinate>, Vec<Station>) {
     let mut coordinates = Vec::new();
     let mut stations = Vec::new();
@@ -104,34 +104,50 @@ fn sort_coordinates(mut coordinates: Vec<Coordinate>) -> Vec<Coordinate> {
 }
 
 fn main() {
-    let track_id = OsmId::Relation(RelationId(178663));
+    let tracks: Vec<(&str, OsmId)> = vec![
+        ("91", OsmId::Relation(RelationId(273891))),
+        ("92", OsmId::Relation(RelationId(300929))),
+        ("93", OsmId::Relation(RelationId(142135))),
+        ("94", OsmId::Relation(RelationId(172570))),
+        ("96", OsmId::Relation(RelationId(178663))),
+        ("98", OsmId::Relation(RelationId(302038))),
+        ("99", OsmId::Relation(RelationId(306852))),
+    ];
+
     let raw_file = File::open("./raw/brandenburg-latest.osm.pbf").unwrap();
     let mut pbf = osmpbfreader::OsmPbfReader::new(&raw_file);
     let objects = pbf
         .get_objs_and_deps(|obj| {
-            obj.id() == track_id // Tram 96
+            for (_, id) in &tracks {
+                if obj.id() == *id {
+                    return true;
+                }
+            }
+            false
         })
         .unwrap();
     println!("Filtered {} OsmObj.", objects.len());
 
-    let (coordinates, stations) = determine_coordinates_and_stations(objects, track_id);
+    for (track_label, track_id) in &tracks {
+        let (coordinates, stations) = determine_coordinates_and_stations(&objects, track_id);
 
-    let reference_track = ReferenceTrack {
-        label: "96",
-        coordinates: sort_coordinates(coordinates),
-        stations: stations,
-    };
+        let reference_track = ReferenceTrack {
+            label: track_label,
+            coordinates: sort_coordinates(coordinates),
+            stations: stations,
+        };
 
-    // Write all the coordinates to one csv file, just for debugging.
-    use std::io::prelude::*;
-    let mut file = File::create("96.csv").unwrap();
-    let mut counter: usize = 0;
-    for (lat, lon) in &reference_track.coordinates {
-        file.write_all(format!("{}, {}, {}\n", lat, lon, counter).as_bytes())
-            .unwrap();
-        counter += 1;
+        // Write all the coordinates to one csv file, just for debugging.
+        use std::io::prelude::*;
+        let mut file = File::create(format!("{}.csv", track_label)).unwrap();
+        let mut counter: usize = 0;
+        for (lat, lon) in &reference_track.coordinates {
+            file.write_all(format!("{}, {}, {}\n", lat, lon, counter).as_bytes())
+                .unwrap();
+            counter += 1;
+        }
+
+        let file = File::create(format!("{}.json", track_label)).unwrap();
+        serde_json::to_writer(file, &reference_track).unwrap();
     }
-
-    let file = File::create("96.json").unwrap();
-    serde_json::to_writer(file, &reference_track).unwrap();
 }

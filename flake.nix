@@ -146,6 +146,8 @@
               zlib
               inkscape
               imagemagick
+
+              qgis
             ] ++ (
               let
                 rustUnstable = (pkgs.rustChannelOf {
