@@ -1,3 +1,6 @@
+*.jpeg
+*.png
+*.svg
 !96.json
 !2020-06-18-filter96.json
 !2020-06-19-filter96.json
@@ -21,3 +24,24 @@
 !2020-07-15-filter96.json
 !2020-07-16-filter96.json
 
+!2020-06-18-filter91.json
+!2020-06-19-filter91.json
+!2020-06-22-filter91.json
+!2020-06-23-filter91.json
+!2020-06-24-filter91.json
+!2020-06-25-filter91.json
+!2020-06-26-filter91.json
+!2020-06-29-filter91.json
+!2020-06-30-filter91.json
+!2020-07-01-filter91.json
+!2020-07-02-filter91.json
+!2020-07-03-filter91.json
+!2020-07-06-filter91.json
+!2020-07-07-filter91.json
+!2020-07-08-filter91.json
+!2020-07-09-filter91.json
+!2020-07-10-filter91.json
+!2020-07-13-filter91.json
+!2020-07-14-filter91.json
+!2020-07-15-filter91.json
+!2020-07-16-filter91.json

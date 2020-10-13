@@ -175,7 +175,7 @@ getAllVehiclesCached (day : days) (Filter filterName vehicleFilter) =
       -- Stupid conversion functions I needed to write in order to make JSON
       -- serialization possible.
       fromCache :: [(TripId, [(LocalTime, GeoCoord)])] -> Line
-      fromCache ds = Main.Line "96" ds
+      fromCache ds = Main.Line filterName ds
       toCache :: Line -> [(TripId, [(LocalTime, GeoCoord)])]
       toCache (Main.Line _ ds) = ds
    in do
@@ -224,7 +224,7 @@ splitTrip' (a : b : ds) =
     then (a : [])
     else (a : (splitTrip' (b : ds)))
 
--- | A lot of logic happens here, as the raw data is in no good shape for our use case. We work on all the data points belonging to a tram line and partition them into ordered segments, which correspond to uninterrupted paths in the final graphic. This partitioning is non-triveal, as the following conditions must be true:
+-- | A lot of logic happens here, as the raw data is in no good shape for our use case. We work on all the data points belonging to a tram line and partition them into ordered segments, which correspond to uninterrupted paths in the final graphic. This partitioning is non-trivial, as the following conditions must be true:
 -- - Every path contains only data points of one tripId.
 -- - There can be multiple paths with the same tripId.
 -- - The data points in each path are sorted by time.
@@ -252,11 +252,11 @@ transformVehicles vehicles =
         let splitted :: [(TripId, [(LocalTime, GeoCoord)])]
             splitted = P.map (\ds' -> (tripId, ds')) $ splitTrip ds
          in splitted ++ splitTrips trips
-   in Main.Line "96" $ splitTrips mapByTripId
+   in Main.Line "" $ splitTrips mapByTripId
 
--- | All data points for Tram 96, in both directions.
-filter96 :: Filter
-filter96 = Filter "filter96" $ \(_, v) -> tramId v == "96"
+-- | All data points for e.g. Tram 96, in both directions.
+filterTram :: Text -> Filter
+filterTram tram = Filter ("filter" <> tram) $ \(_, v) -> tramId v == tram
 
 type ReferenceTrack = [(Meter, GeoCoord)]
 
@@ -270,9 +270,9 @@ data ReferenceTrackJson
 
 instance FromJSON ReferenceTrackJson
 
-readReferenceTrackFromFile :: IO (ReferenceTrack, [(Text, GeoCoord)])
-readReferenceTrackFromFile = do
-  fileContent <- BL.readFile "./cache/96.json"
+readReferenceTrackFromFile :: FilePath -> IO (ReferenceTrack, [(Text, GeoCoord)])
+readReferenceTrackFromFile f = do
+  fileContent <- BL.readFile $ "./cache/" <> f
   case (Aeson.eitherDecode fileContent) of
     (Right res) -> return (enrichTrackWithLength 0 $ coordinates res, stations res)
     (Left err) -> error "Can't deserialise Referencetrack."
@@ -394,8 +394,8 @@ placeOnY :: ReferenceTrack -> GeoCoord -> Maybe Double
 placeOnY refTrack v = fmap (200 *) $ locateCoordOnTrackLength refTrack v
 
 -- | Transforms a Line to an SVG ELement.
-diagramCached :: FilePath -> Text -> Double -> ReferenceTrack -> [String] -> IO ()
-diagramCached filePath color strokeWidth referenceTrack days =
+diagramCached :: Text -> FilePath -> Text -> Double -> ReferenceTrack -> [String] -> IO ()
+diagramCached tram filePath color strokeWidth referenceTrack days =
   let cachePath = "./cache/" <> filePath
       document :: [Line] -> Element
       document lines =
@@ -403,7 +403,7 @@ diagramCached filePath color strokeWidth referenceTrack days =
           (style_ [] "path { mix-blend-mode: multiply; }")
             <> ( P.mconcat $
                    P.map
-                     ( \(Main.Line lineId trips) ->
+                     ( \(Main.Line _ trips) ->
                          P.mconcat
                            $ P.map
                              ( tripToElement
@@ -422,7 +422,7 @@ diagramCached filePath color strokeWidth referenceTrack days =
           then P.putStrLn $ "Cache hit:  " <> cachePath
           else do
             P.putStrLn $ "Cache miss: " <> cachePath
-            linesOneDay <- getAllVehiclesCached days filter96
+            linesOneDay <- getAllVehiclesCached days $ filterTram tram
             P.writeFile cachePath $ P.show $ document linesOneDay
 
 instance NFData Element where
@@ -507,10 +507,9 @@ extractReferenceTrackCached =
       filterNodes :: [Int] -> Node -> Bool
       filterNodes ids (Node {_ninfo = Nothing}) = False
       filterNodes ids (Node {_ninfo = Just (Info {_id = nodeId})}) = P.elem nodeId ids
-
       osmToRefTrack :: [Node] -> ReferenceTrack
       osmToRefTrack [] = []
-      osmToRefTrack (node:nodes) = (0, (_lat node, _lng node)):(osmToRefTrack nodes)
+      osmToRefTrack (node : nodes) = (0, (_lat node, _lng node)) : (osmToRefTrack nodes)
    in do
         fileExists <- doesFileExist cachePath
         if fileExists
@@ -534,7 +533,7 @@ extractReferenceTrackCached =
                 $ ways . blocks
                 $ blobs dataPath
             TSIO.putStrLn $ TS.pack $ P.show osmWays
-            osmNodes <- 
+            osmNodes <-
               runResourceT
                 . toList_
                 . S.filter (filterNodes $ P.concat $ P.map _nodeRefs osmWays)
@@ -545,11 +544,6 @@ extractReferenceTrackCached =
              in do
                   -- BL.writeFile cachePath $ Aeson.encode referenceTracks
                   return [referenceTrack]
-
-main :: IO ()
-main = do
-  refs <- extractReferenceTrackCached
-  P.putStrLn $ P.show refs
 
 -- | Show a line as an CSV table, just a helper function I'll not use often.
 printCSV :: Line -> String
@@ -620,13 +614,16 @@ graphicWithLegends diagramPath refTrack stations outFile = do
       <> (yLegend (placeOnY refTrack) stations)
       <> (xLegend placeOnX)
 
--- main :: IO ()
--- main = do
---   setLocaleEncoding utf8
---   (referenceTrack96, stations96) <- readReferenceTrackFromFile
---   diagramCached "2020-07-06_96_diagram.svg" "black" 1 referenceTrack96 ["2020-07-06"]
---   graphicWithLegends "2020-07-06_96_diagram.svg" referenceTrack96 stations96 "2020-07-06_96.svg"
---   diagramCached "all_days_96_diagram.svg" "black" 1 referenceTrack96 days
---   graphicWithLegends "all_days_96_diagram.svg" referenceTrack96 stations96 "all_days_96.svg"
---   diagramCached "all_days_blended_96_diagram.svg" "#cccccc" 4 referenceTrack96 days
---   graphicWithLegends "all_days_blended_96_diagram.svg" referenceTrack96 stations96 "all_days_blended_96.svg"
+main :: IO ()
+main = do
+  setLocaleEncoding utf8
+  (referenceTrack96, stations96) <- readReferenceTrackFromFile "96.json"
+  diagramCached "96" "2020-07-06_96_diagram.svg" "black" 1 referenceTrack96 ["2020-07-06"]
+  graphicWithLegends "2020-07-06_96_diagram.svg" referenceTrack96 stations96 "2020-07-06_96.svg"
+  diagramCached "96" "all_days_96_diagram.svg" "black" 1 referenceTrack96 days
+  graphicWithLegends "all_days_96_diagram.svg" referenceTrack96 stations96 "all_days_96.svg"
+  diagramCached "96" "all_days_blended_96_diagram.svg" "#cccccc" 4 referenceTrack96 days
+  graphicWithLegends "all_days_blended_96_diagram.svg" referenceTrack96 stations96 "all_days_blended_96.svg"
+  (referenceTrack91, stations91) <- readReferenceTrackFromFile "91.json"
+  diagramCached "91" "all_days_blended_91_diagram.svg" "#cccccc" 4 referenceTrack91 days
+  graphicWithLegends "all_days_blended_91_diagram.svg" referenceTrack91 stations91 "all_days_blended_91.svg"
