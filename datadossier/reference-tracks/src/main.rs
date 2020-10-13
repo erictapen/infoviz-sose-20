@@ -65,7 +65,7 @@ fn determine_coordinates_and_stations(
             }
         }
     }
-    (coordinates, stations)
+    (sort_coordinates(coordinates), stations)
 }
 
 /// OSM data is not always in the correct order, so we have to hop from coordinate to the next
@@ -131,21 +131,21 @@ fn main() {
     for (track_label, track_id) in &tracks {
         let (coordinates, stations) = determine_coordinates_and_stations(&objects, track_id);
 
-        let reference_track = ReferenceTrack {
-            label: track_label,
-            coordinates: sort_coordinates(coordinates),
-            stations: stations,
-        };
-
         // Write all the coordinates to one csv file, just for debugging.
         use std::io::prelude::*;
         let mut file = File::create(format!("{}.csv", track_label)).unwrap();
         let mut counter: usize = 0;
-        for (lat, lon) in &reference_track.coordinates {
+        for (lat, lon) in &coordinates {
             file.write_all(format!("{}, {}, {}\n", lat, lon, counter).as_bytes())
                 .unwrap();
             counter += 1;
         }
+
+        let reference_track = ReferenceTrack {
+            label: track_label,
+            coordinates: coordinates,
+            stations: stations,
+        };
 
         let file = File::create(format!("{}.json", track_label)).unwrap();
         serde_json::to_writer(file, &reference_track).unwrap();
