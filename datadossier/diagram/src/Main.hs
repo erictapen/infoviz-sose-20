@@ -597,7 +597,7 @@ graphicWithLegends :: FilePath -> ReferenceTrack -> [(Text, GeoCoord)] -> FilePa
 graphicWithLegends diagramPath refTrack stations outFile = do
   readProcess "./jpeg.sh" [("cache/" <> diagramPath)] ""
   jpegContent <- BS.readFile $ "cache/" <> diagramPath <> ".jpeg"
-  P.writeFile outFile
+  P.writeFile ("cache/" <> outFile)
     $ P.show
     $ svg
     $ g_
