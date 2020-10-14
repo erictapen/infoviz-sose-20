@@ -396,7 +396,7 @@ placeOnY refTrack v = fmap (200 *) $ locateCoordOnTrackLength refTrack v
 -- | Transforms a Line to an SVG ELement.
 diagramCached :: Text -> FilePath -> Text -> Double -> ReferenceTrack -> [String] -> IO ()
 diagramCached tram filePath color strokeWidth referenceTrack days =
-  let cachePath = "./cache/" <> filePath
+  let cachePath = filePath
       document :: [Line] -> Element
       document lines =
         svgInner $
@@ -567,8 +567,8 @@ printCSV (Main.Line _ trips) =
       )
       trips
 
-days :: [String]
-days =
+allDays :: [String]
+allDays =
   [ -- We don't use 2020-06-17, as it is incomplete
     "2020-06-18",
     "2020-06-19",
@@ -593,16 +593,19 @@ days =
     "2020-07-16"
   ]
 
-graphicWithLegendsCached :: FilePath -> ReferenceTrack -> [(Text, GeoCoord)] -> FilePath -> IO ()
-graphicWithLegendsCached diagramPath refTrack stations outFile =
-  let cachePath = "cache/" <> outFile
+graphicWithLegendsCached :: String -> FilePath -> Text -> Double -> [String] -> IO ()
+graphicWithLegendsCached tram outFile color strokeWidth days =
+  let cachePath = "cache/" <> outFile <> ".svg"
+      diagramPath = "cache/" <> outFile <> "_diagram.svg"
    in do
         fileExists <- doesFileExist cachePath
         if fileExists
           then P.putStrLn $ "Cache hit:  " <> cachePath
           else do
-            readProcess "./jpeg.sh" [("cache/" <> diagramPath)] ""
-            jpegContent <- BS.readFile $ "cache/" <> diagramPath <> ".jpeg"
+            (refTrack, stations) <- readReferenceTrackFromFile $ tram <> ".json"
+            diagramCached (TS.pack tram) diagramPath color strokeWidth refTrack days
+            readProcess "./jpeg.sh" [diagramPath] ""
+            jpegContent <- BS.readFile $ diagramPath <> ".jpeg"
             P.writeFile cachePath
               $ P.show
               $ svg
@@ -620,16 +623,16 @@ graphicWithLegendsCached diagramPath refTrack stations outFile =
                 <> (yLegend (placeOnY refTrack) stations)
                 <> (xLegend placeOnX)
 
+
 main :: IO ()
 main = do
   setLocaleEncoding utf8
-  (referenceTrack96, stations96) <- readReferenceTrackFromFile "96.json"
-  diagramCached "96" "2020-07-06_96_diagram.svg" "black" 1 referenceTrack96 ["2020-07-06"]
-  graphicWithLegendsCached "2020-07-06_96_diagram.svg" referenceTrack96 stations96 "2020-07-06_96.svg"
-  diagramCached "96" "all_days_96_diagram.svg" "black" 1 referenceTrack96 days
-  graphicWithLegendsCached "all_days_96_diagram.svg" referenceTrack96 stations96 "all_days_96.svg"
-  diagramCached "96" "all_days_blended_96_diagram.svg" "#cccccc" 4 referenceTrack96 days
-  graphicWithLegendsCached "all_days_blended_96_diagram.svg" referenceTrack96 stations96 "all_days_blended_96.svg"
-  (referenceTrack91, stations91) <- readReferenceTrackFromFile "91.json"
-  diagramCached "91" "all_days_blended_91_diagram.svg" "#cccccc" 4 referenceTrack91 days
-  graphicWithLegendsCached "all_days_blended_91_diagram.svg" referenceTrack91 stations91 "all_days_blended_91.svg"
+  graphicWithLegendsCached "96" "2020-07-06_96" "black" 1 ["2020-07-06"]
+  graphicWithLegendsCached "96" "all_days_96" "black" 1 allDays
+  graphicWithLegendsCached "91" "all_days_blended_91" "#cccccc" 4 allDays
+  graphicWithLegendsCached "92" "all_days_blended_92" "#cccccc" 4 allDays
+  graphicWithLegendsCached "93" "all_days_blended_93" "#cccccc" 4 allDays
+  graphicWithLegendsCached "94" "all_days_blended_94" "#cccccc" 4 allDays
+  graphicWithLegendsCached "96" "all_days_blended_96" "#cccccc" 4 allDays
+  graphicWithLegendsCached "98" "all_days_blended_98" "#cccccc" 4 allDays
+  graphicWithLegendsCached "99" "all_days_blended_99" "#cccccc" 4 allDays
