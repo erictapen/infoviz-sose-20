@@ -111,7 +111,7 @@ fn main() {
         ("94", OsmId::Relation(RelationId(172570))),
         ("96", OsmId::Relation(RelationId(178663))),
         ("98", OsmId::Relation(RelationId(302038))),
-        ("99", OsmId::Relation(RelationId(306852))),
+        ("99", OsmId::Relation(RelationId(1585258))),
     ];
 
     let raw_file = File::open("./raw/brandenburg-latest.osm.pbf").unwrap();
