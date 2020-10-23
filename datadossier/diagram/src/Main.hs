@@ -337,13 +337,13 @@ diagramWidth = 6 * 60 * 24
 diagramHeightFactor :: Double
 diagramHeightFactor = 0.02
 
--- | Height of the diagram. It is computed from the length of a ReferenceTrack, as we show absolute values. This returns Text, as we want to put mm as a unit into the height.
+-- | Height of the diagram. It is computed from the length of a ReferenceTrack, as we show absolute values. This returns Text.
 diagramHeight :: ReferenceTrack -> Text
 diagramHeight = diagramHeightPlus 0
 
 -- | Helper function to add something to the height.
 diagramHeightPlus :: Double -> ReferenceTrack -> Text
-diagramHeightPlus summand refTrack = (toText $ (+) summand $ (*) diagramHeightFactor $ fst $ P.last refTrack) <> "mm"
+diagramHeightPlus summand refTrack = toText $ (+) summand $ (*) diagramHeightFactor $ fst $ P.last refTrack
 
 -- document root
 svg :: Text -> Element -> Element
