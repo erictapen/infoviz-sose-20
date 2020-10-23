@@ -310,7 +310,6 @@ locateCoordOnTrackLength :: Double -> ReferenceTrack -> GeoCoord -> Maybe Double
 locateCoordOnTrackLength tolerance track coord =
   let compareByDistance (_, a) (_, b) = compare (distance coord a) (distance coord b)
       compareByPosition (a, _) (b, _) = compare a b
-      overallTrackLength = fst $ P.last track
       -- The two trackpoints closest to coord, sorted by their position on the track.
       twoClosestTrackPoints =
         sortBy compareByPosition
@@ -334,31 +333,41 @@ enrichTrackWithLength m (x : next : xs) =
 diagramWidth :: Double
 diagramWidth = 6 * 60 * 24
 
+-- | This factor is used to calculate mm height in real y axis from m height in physical track length.
+diagramHeightFactor :: Double
+diagramHeightFactor = 0.02
+
+-- | Height of the diagram. It is computed from the length of a ReferenceTrack, as we show absolute values. This returns Text, as we want to put mm as a unit into the height.
+diagramHeight :: ReferenceTrack -> Text
+diagramHeight = diagramHeightPlus 0
+
+-- | Helper function to add something to the height.
+diagramHeightPlus :: Double -> ReferenceTrack -> Text
+diagramHeightPlus summand refTrack = (toText $ (+) summand $ (*) diagramHeightFactor $ fst $ P.last refTrack) <> "mm"
+
 -- document root
-svg :: Element -> Element
-svg content =
+svg :: Text -> Element -> Element
+svg height content =
   let width = diagramWidth + 100 + 20 + 20
-      height = 200 + 20 + 20
    in doctype
         <> Graphics.Svg.with
           (svg11_ content)
           [ Version_ <<- "1.1",
             Width_ <<- (toText width),
-            Height_ <<- (toText height),
-            ViewBox_ <<- "0 0 " <> (toText width) <> " " <> (toText height)
+            Height_ <<- height,
+            ViewBox_ <<- "0 0 " <> (toText width) <> " " <> height
           ]
 
-svgInner :: Element -> Element
-svgInner content =
-  let height = 200
-   in doctype
-        <> Graphics.Svg.with
-          (svg11_ content)
-          [ Version_ <<- "1.1",
-            Width_ <<- (toText diagramWidth),
-            Height_ <<- (toText height),
-            ViewBox_ <<- "0 0 " <> (toText diagramWidth) <> " " <> (toText height)
-          ]
+svgInner :: Text -> Element -> Element
+svgInner height content =
+  doctype
+    <> Graphics.Svg.with
+      (svg11_ content)
+      [ Version_ <<- "1.1",
+        Width_ <<- (toText diagramWidth),
+        Height_ <<- height,
+        ViewBox_ <<- "0 0 " <> (toText diagramWidth) <> " " <> height
+      ]
 
 -- | Seconds from midnight on a TimeOfDay
 seconds :: TimeOfDay -> Double
@@ -417,7 +426,7 @@ placeOnX :: TimeOfDay -> Double
 placeOnX t = (*) 0.1 $ seconds t
 
 placeOnY :: Double -> ReferenceTrack -> GeoCoord -> Maybe Double
-placeOnY tolerance refTrack v = fmap (0.02 *) $ locateCoordOnTrackLength tolerance refTrack v
+placeOnY tolerance refTrack v = fmap (diagramHeightFactor *) $ locateCoordOnTrackLength tolerance refTrack v
 
 -- | Transforms a Line to an SVG ELement.
 diagramCached :: Text -> FilePath -> Text -> Double -> ReferenceTrack -> [String] -> IO ()
@@ -425,7 +434,7 @@ diagramCached tram filePath color strokeWidth referenceTrack days =
   let cachePath = filePath
       document :: [Line] -> Element
       document lines =
-        svgInner $
+        svgInner (diagramHeight referenceTrack) $
           (style_ [] "path { mix-blend-mode: multiply; }")
             <> ( P.mconcat $
                    P.map
@@ -651,7 +660,7 @@ graphicWithLegendsCached tram outFile color strokeWidth days webOrPrint =
               Print -> BS.readFile $ diagramPath <> ".png"
             P.writeFile cachePath
               $ P.show
-              $ svg
+              $ svg (diagramHeightPlus (40 + 40) refTrack)
               $ g_
                 [ Transform_ <<- translate 100 20
                 ]
@@ -661,7 +670,7 @@ graphicWithLegendsCached tram outFile color strokeWidth days webOrPrint =
                           [ X_ <<- (toText 0),
                             Y_ <<- (toText 0),
                             Width_ <<- (toText diagramWidth),
-                            Height_ <<- (toText 200),
+                            Height_ <<- diagramHeight refTrack,
                             XlinkHref_ <<- case webOrPrint of
                               Web -> ("data:image/jpeg;base64," <> encodeBase64 rasterContent)
                               Print -> ("data:image/png;base64," <> encodeBase64 rasterContent)
