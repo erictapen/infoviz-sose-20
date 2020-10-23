@@ -71,15 +71,15 @@ distance a b = vecLength $ vecSubtract (geoToVec a) (geoToVec b)
 -- Example:
 -- mapToTrack (52.415193, 13.050288) (52.415795, 13.050324) (52.415283, 13.050306)
 -- This should Just be about 10.3 meters.
-mapToTrack :: GeoCoord -> GeoCoord -> GeoCoord -> Maybe Double
-mapToTrack a b c =
+mapToTrack :: Double -> GeoCoord -> GeoCoord -> GeoCoord -> Maybe Double
+mapToTrack tolerance a b c =
   let (abx, aby, abz) = vecSubtract (geoToVec a) (geoToVec b)
       (acx, acy, acz) = vecSubtract (geoToVec a) (geoToVec c)
       abLength = vecLength (abx, aby, abz)
       res = (abx * acx + aby * acy + abz * acz) / abLength
    in -- We only accpt the mapping if it is on the track segment or at least
-      -- within 10 meters of it.
-      if (-20) <= res && res <= (abLength + 20)
+      -- within a specified amount of meters of it.
+      if (-tolerance) <= res && res <= (abLength + tolerance)
         then Just res
         else Nothing
 
@@ -305,8 +305,8 @@ readReferenceTrackFromFile f = do
 type Meter = Double
 
 -- | This returns the distance a tram has traveled, starting from the start of the track, as a ratio of the overall track length. Shouldn't be less than 0 and greater than 1.0, but I'm not sure!
-locateCoordOnTrackLength :: ReferenceTrack -> GeoCoord -> Maybe Double
-locateCoordOnTrackLength track coord =
+locateCoordOnTrackLength :: Double -> ReferenceTrack -> GeoCoord -> Maybe Double
+locateCoordOnTrackLength tolerance track coord =
   let compareByDistance (_, a) (_, b) = compare (distance coord a) (distance coord b)
       compareByPosition (a, _) (b, _) = compare a b
       overallTrackLength = fst $ P.last track
@@ -317,7 +317,7 @@ locateCoordOnTrackLength track coord =
           $ sortBy compareByDistance track
       (currentMark, firstPoint) = twoClosestTrackPoints !! 0
       (_, secondPoint) = twoClosestTrackPoints !! 1
-   in case mapToTrack firstPoint secondPoint coord of
+   in case mapToTrack tolerance firstPoint secondPoint coord of
         (Just v) -> Just $ (currentMark + v) / overallTrackLength
         Nothing -> Nothing
 
@@ -415,8 +415,8 @@ tripToElement' fx fy ((t, v) : ds) = case (fy v) of
 placeOnX :: TimeOfDay -> Double
 placeOnX t = (*) 0.1 $ seconds t
 
-placeOnY :: ReferenceTrack -> GeoCoord -> Maybe Double
-placeOnY refTrack v = fmap (200 *) $ locateCoordOnTrackLength refTrack v
+placeOnY :: Double -> ReferenceTrack -> GeoCoord -> Maybe Double
+placeOnY tolerance refTrack v = fmap (200 *) $ locateCoordOnTrackLength tolerance refTrack v
 
 -- | Transforms a Line to an SVG ELement.
 diagramCached :: Text -> FilePath -> Text -> Double -> ReferenceTrack -> [String] -> IO ()
@@ -435,7 +435,7 @@ diagramCached tram filePath color strokeWidth referenceTrack days =
                                  color
                                  strokeWidth
                                  (placeOnX . localTimeOfDay)
-                                 (placeOnY referenceTrack)
+                                 (placeOnY 10 referenceTrack)
                              )
                            $ trips
                      )
@@ -645,9 +645,8 @@ graphicWithLegendsCached tram outFile color strokeWidth days =
                       XlinkHref_ <<- ("data:image/jpeg;base64," <> encodeBase64 jpegContent)
                     ]
                 )
-                <> (yLegend (placeOnY refTrack) stations)
+                <> (yLegend (placeOnY 30 refTrack) stations)
                 <> (xLegend placeOnX)
-
 
 main :: IO ()
 main = do
