@@ -79,7 +79,7 @@ mapToTrack a b c =
       res = (abx * acx + aby * acy + abz * acz) / abLength
    in -- We only accpt the mapping if it is on the track segment or at least
       -- within 10 meters of it.
-      if (-10) <= res && res <= (abLength + 10)
+      if (-20) <= res && res <= (abLength + 20)
         then Just res
         else Nothing
 
