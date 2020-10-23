@@ -108,7 +108,7 @@ fn main() {
         ("91", OsmId::Relation(RelationId(273891))),
         ("92", OsmId::Relation(RelationId(300929))),
         ("93", OsmId::Relation(RelationId(142135))),
-        ("94", OsmId::Relation(RelationId(172570))),
+        ("94", OsmId::Relation(RelationId(1512259))),
         ("96", OsmId::Relation(RelationId(178663))),
         ("98", OsmId::Relation(RelationId(302038))),
         ("99", OsmId::Relation(RelationId(1585258))),
