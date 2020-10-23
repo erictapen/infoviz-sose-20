@@ -429,8 +429,8 @@ placeOnY tolerance refTrack v = fmap (diagramHeightFactor *) $ locateCoordOnTrac
 
 -- | Transforms a Line to an SVG ELement.
 diagramCached :: Text -> FilePath -> Text -> Double -> ReferenceTrack -> [String] -> IO ()
-diagramCached tram filePath color strokeWidth referenceTrack days =
-  let cachePath = filePath
+diagramCached tram outPath color strokeWidth referenceTrack days =
+  let cachePath = outPath
       document :: [Line] -> Element
       document lines =
         svgInner (toText $ diagramHeight referenceTrack) $
