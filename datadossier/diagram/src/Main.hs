@@ -289,7 +289,7 @@ completeReferenceTrack rt@(ReferenceTrackJson label coordinates stations)
           ]
      in ReferenceTrackJson
           label
-          ((P.map snd bisamkiezToPdEBF) ++ (P.drop 32 coordinates))
+          ((P.map snd bisamkiezToPdEBF) ++ (P.drop 33 coordinates))
           (bisamkiezToPdEBF ++ (P.drop 2 stations))
   | otherwise = rt
 

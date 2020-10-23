@@ -74,6 +74,7 @@ fn sort_coordinates(mut coordinates: Vec<Coordinate>) -> Vec<Coordinate> {
     let mut res = Vec::new();
     // At first we assume that the first coordinate is actually the start of the track.
     let (mut cursor_lat, mut cursor_lon): Coordinate = coordinates.remove(0);
+    res.push((cursor_lat, cursor_lon));
     while !coordinates.is_empty() {
         let mut shortest_dist: (f64, usize) = (f64::MAX, 0);
         let cursor_point = Point::new(cursor_lon, cursor_lat);
