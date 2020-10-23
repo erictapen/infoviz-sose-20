@@ -304,7 +304,8 @@ readReferenceTrackFromFile f = do
 
 type Meter = Double
 
--- | This returns the distance a tram has traveled, starting from the start of the track, as a ratio of the overall track length. Shouldn't be less than 0 and greater than 1.0, but I'm not sure!
+-- | This returns the distance a tram has traveled, starting from the start of the track, in meters.
+-- Shouldn't be < 0 or longer than the track, but I'm not sure!
 locateCoordOnTrackLength :: Double -> ReferenceTrack -> GeoCoord -> Maybe Double
 locateCoordOnTrackLength tolerance track coord =
   let compareByDistance (_, a) (_, b) = compare (distance coord a) (distance coord b)
@@ -318,7 +319,7 @@ locateCoordOnTrackLength tolerance track coord =
       (currentMark, firstPoint) = twoClosestTrackPoints !! 0
       (_, secondPoint) = twoClosestTrackPoints !! 1
    in case mapToTrack tolerance firstPoint secondPoint coord of
-        (Just v) -> Just $ (currentMark + v) / overallTrackLength
+        (Just v) -> Just $ (currentMark + v)
         Nothing -> Nothing
 
 -- | Put the current kilometre mark on the track. Needs a starting Meter, as it
@@ -416,7 +417,7 @@ placeOnX :: TimeOfDay -> Double
 placeOnX t = (*) 0.1 $ seconds t
 
 placeOnY :: Double -> ReferenceTrack -> GeoCoord -> Maybe Double
-placeOnY tolerance refTrack v = fmap (200 *) $ locateCoordOnTrackLength tolerance refTrack v
+placeOnY tolerance refTrack v = fmap (0.02 *) $ locateCoordOnTrackLength tolerance refTrack v
 
 -- | Transforms a Line to an SVG ELement.
 diagramCached :: Text -> FilePath -> Text -> Double -> ReferenceTrack -> [String] -> IO ()
