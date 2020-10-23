@@ -694,3 +694,9 @@ main = do
   graphicWithLegendsCached "98" "all_days_blended_98" "#cccccc" 4 allDays Web
   graphicWithLegendsCached "99" "all_days_blended_99" "#cccccc" 4 allDays Web
   graphicWithLegendsCached "91" "all_days_blended_91" "#cccccc" 4 allDays Print
+  graphicWithLegendsCached "92" "all_days_blended_92" "#cccccc" 4 allDays Print
+  graphicWithLegendsCached "93" "all_days_blended_93" "#cccccc" 4 allDays Print
+  graphicWithLegendsCached "94" "all_days_blended_94" "#cccccc" 4 allDays Print
+  graphicWithLegendsCached "96" "all_days_blended_96" "#cccccc" 4 allDays Print
+  graphicWithLegendsCached "98" "all_days_blended_98" "#cccccc" 4 allDays Print
+  graphicWithLegendsCached "99" "all_days_blended_99" "#cccccc" 4 allDays Print
