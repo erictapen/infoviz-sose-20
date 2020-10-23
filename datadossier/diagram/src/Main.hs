@@ -527,8 +527,8 @@ yLegend fy ((label, coord) : stations) =
 
 extractReferenceTrackCached :: IO [ReferenceTrack]
 extractReferenceTrackCached =
-  let dataPath = "raw/brandenburg-latest.osm.pbf"
-      cachePath = "cache/reference-tracks.json"
+  let dataPath = "./raw/brandenburg-latest.osm.pbf"
+      cachePath = "./cache/reference-tracks.json"
       -- filter through all relations so we get the one we need
       filterRelations :: Relation -> Bool
       filterRelations (Relation {_rinfo = Nothing}) = False
@@ -630,19 +630,19 @@ data WebOrPrint = Web | Print
 graphicWithLegendsCached :: String -> FilePath -> Text -> Double -> [String] -> WebOrPrint -> IO ()
 graphicWithLegendsCached tram outFile color strokeWidth days webOrPrint =
   let cachePath =
-        "cache/" <> outFile
+        "./cache/" <> outFile
           <> ( case webOrPrint of
                  Web -> ""
                  Print -> "_print"
              )
           <> ".svg"
-      diagramPath = "cache/" <> outFile <> "_diagram.svg"
+      diagramPath = "./cache/" <> outFile <> "_diagram.svg"
    in do
         fileExists <- doesFileExist cachePath
         if fileExists
           then P.putStrLn $ "Cache hit:  " <> cachePath
           else do
-            P.putStrLn $ "Cache miss:  " <> cachePath
+            P.putStrLn $ "Cache miss: " <> cachePath
             (refTrack, stations) <- readReferenceTrackFromFile $ tram <> ".json"
             diagramCached (TS.pack tram) diagramPath color strokeWidth refTrack days
             readProcess "./raster.sh" [diagramPath] ""
