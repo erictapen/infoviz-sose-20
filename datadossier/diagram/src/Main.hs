@@ -336,7 +336,7 @@ diagramWidth = 6 * 60 * 24
 -- document root
 svg :: Element -> Element
 svg content =
-  let width = diagramWidth + 50 + 20 + 20
+  let width = diagramWidth + 100 + 20 + 20
       height = 200 + 20 + 20
    in doctype
         <> Graphics.Svg.with
@@ -503,7 +503,7 @@ yLegend fy ((label, coord) : stations) =
             <> " to y axis. Maybe increase tolerance?"
       (Just yPos) ->
         ( ( text_
-              [ X_ <<- (toText (- 1)),
+              [ X_ <<- (toText (- 3)),
                 Y_ <<- (toText (yPos + 1)),
                 Font_family_ <<- "Fira Sans",
                 Text_anchor_ <<- "end",
@@ -652,7 +652,7 @@ graphicWithLegendsCached tram outFile color strokeWidth days webOrPrint =
               $ P.show
               $ svg
               $ g_
-                [ Transform_ <<- translate 50 20
+                [ Transform_ <<- translate 100 20
                 ]
               $ let legend = (yLegend (placeOnY 100 refTrack) stations) <> (xLegend placeOnX)
                     image =
