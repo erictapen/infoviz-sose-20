@@ -79,7 +79,7 @@ mapToTrack tolerance a b c =
       res = (abx * acx + aby * acy + abz * acz) / abLength
    in -- We only accpt the mapping if it is on the track segment or at least
       -- within a specified amount of meters of it.
-      if (-tolerance) <= res && res <= (abLength + tolerance)
+      if (- tolerance) <= res && res <= (abLength + tolerance)
         then Just res
         else Nothing
 
@@ -494,7 +494,13 @@ yLegend :: (GeoCoord -> Maybe Double) -> [(Text, GeoCoord)] -> Element
 yLegend _ [] = mempty
 yLegend fy ((label, coord) : stations) =
   ( case (fy coord) of
-      Nothing -> mempty
+      Nothing ->
+        error $
+          "Failed to map station "
+            <> (TS.unpack label)
+            <> ", "
+            <> (P.show coord)
+            <> " to y axis. Maybe increase tolerance?"
       (Just yPos) ->
         ( ( text_
               [ X_ <<- (toText (- 1)),
@@ -645,7 +651,7 @@ graphicWithLegendsCached tram outFile color strokeWidth days =
                       XlinkHref_ <<- ("data:image/jpeg;base64," <> encodeBase64 jpegContent)
                     ]
                 )
-                <> (yLegend (placeOnY 30 refTrack) stations)
+                <> (yLegend (placeOnY 100 refTrack) stations)
                 <> (xLegend placeOnX)
 
 main :: IO ()
