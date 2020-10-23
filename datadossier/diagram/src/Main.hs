@@ -337,26 +337,25 @@ diagramWidth = 6 * 60 * 24
 diagramHeightFactor :: Double
 diagramHeightFactor = 0.02
 
--- | Height of the diagram. It is computed from the length of a ReferenceTrack, as we show absolute values. This returns Text.
-diagramHeight :: ReferenceTrack -> Text
+-- | Height of the diagram. It is computed from the length of a ReferenceTrack, as we show absolute values.
+diagramHeight :: ReferenceTrack -> Double
 diagramHeight = diagramHeightPlus 0
 
 -- | Helper function to add something to the height.
-diagramHeightPlus :: Double -> ReferenceTrack -> Text
-diagramHeightPlus summand refTrack = toText $ (+) summand $ (*) diagramHeightFactor $ fst $ P.last refTrack
+diagramHeightPlus :: Double -> ReferenceTrack -> Double
+diagramHeightPlus summand refTrack = (+) summand $ (*) diagramHeightFactor $ fst $ P.last refTrack
 
 -- document root
-svg :: Text -> Element -> Element
-svg height content =
-  let width = diagramWidth + 100 + 20 + 20
-   in doctype
-        <> Graphics.Svg.with
-          (svg11_ content)
-          [ Version_ <<- "1.1",
-            Width_ <<- (toText width),
-            Height_ <<- height,
-            ViewBox_ <<- "0 0 " <> (toText width) <> " " <> height
-          ]
+svg :: Text -> Text -> Element -> Element
+svg height width content =
+  doctype
+    <> Graphics.Svg.with
+      (svg11_ content)
+      [ Version_ <<- "1.1",
+        Width_ <<- width,
+        Height_ <<- height,
+        ViewBox_ <<- "0 0 " <> width <> " " <> height
+      ]
 
 svgInner :: Text -> Element -> Element
 svgInner height content =
@@ -434,7 +433,7 @@ diagramCached tram filePath color strokeWidth referenceTrack days =
   let cachePath = filePath
       document :: [Line] -> Element
       document lines =
-        svgInner (diagramHeight referenceTrack) $
+        svgInner (toText $ diagramHeight referenceTrack) $
           (style_ [] "path { mix-blend-mode: multiply; }")
             <> ( P.mconcat $
                    P.map
@@ -660,7 +659,7 @@ graphicWithLegendsCached tram outFile color strokeWidth days webOrPrint =
               Print -> BS.readFile $ diagramPath <> ".png"
             P.writeFile cachePath
               $ P.show
-              $ svg (diagramHeightPlus (40 + 40) refTrack)
+              $ svg (toText $ diagramHeightPlus (40 + 40) refTrack) (toText $ diagramWidth + 100 + 20 + 20)
               $ g_
                 [ Transform_ <<- translate 100 20
                 ]
@@ -670,7 +669,7 @@ graphicWithLegendsCached tram outFile color strokeWidth days webOrPrint =
                           [ X_ <<- (toText 0),
                             Y_ <<- (toText 0),
                             Width_ <<- (toText diagramWidth),
-                            Height_ <<- diagramHeight refTrack,
+                            Height_ <<- (toText $ diagramHeight refTrack),
                             XlinkHref_ <<- case webOrPrint of
                               Web -> ("data:image/jpeg;base64," <> encodeBase64 rasterContent)
                               Print -> ("data:image/png;base64," <> encodeBase64 rasterContent)
