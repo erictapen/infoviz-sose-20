@@ -680,6 +680,47 @@ graphicWithLegendsCached tram outFile color strokeWidth days webOrPrint =
                       Web -> image <> legend
                       Print -> legend <> image
 
+plakat :: IO ()
+plakat = do
+  (rt91, _) <- readReferenceTrackFromFile "91.json"
+  (rt92, _) <- readReferenceTrackFromFile "92.json"
+  (rt93, _) <- readReferenceTrackFromFile "93.json"
+  (rt94, _) <- readReferenceTrackFromFile "94.json"
+  (rt96, _) <- readReferenceTrackFromFile "96.json"
+  (rt98, _) <- readReferenceTrackFromFile "98.json"
+  (rt99, _) <- readReferenceTrackFromFile "99.json"
+  let heights = P.map diagramHeight [rt91, rt92, rt93, rt94, rt96, rt98, rt99]
+      imagePaths =
+        P.zip heights $
+          [ "all_days_blended_91_diagram.svg.png",
+            "all_days_blended_92_diagram.svg.png",
+            "all_days_blended_93_diagram.svg.png",
+            "all_days_blended_94_diagram.svg.png",
+            "all_days_blended_96_diagram.svg.png",
+            "all_days_blended_98_diagram.svg.png",
+            "all_days_blended_99_diagram.svg.png"
+          ]
+      diagrams :: Double -> [(Double, Text)] -> Element
+      diagrams _ [] = mempty
+      diagrams cursorHeight ((height, filePath) : rs) =
+        ( image_
+            [ X_ <<- toText 0,
+              Y_ <<- toText cursorHeight,
+              Width_ <<- toText diagramWidth,
+              Height_ <<- toText height,
+              XlinkHref_ <<- filePath
+            ]
+        )
+          <> diagrams (cursorHeight + height) rs
+   in do
+        P.print $ P.show heights
+        P.writeFile "./cache/plakat.svg" $ P.show
+          $ svg "594" "841"
+          $ g_
+            [ Transform_ <<- translate 100 20
+            ]
+          $ diagrams 0 imagePaths
+
 main :: IO ()
 main = do
   setLocaleEncoding utf8
@@ -699,3 +740,4 @@ main = do
   graphicWithLegendsCached "96" "all_days_blended_96" "#cccccc" 4 allDays Print
   graphicWithLegendsCached "98" "all_days_blended_98" "#cccccc" 4 allDays Print
   graphicWithLegendsCached "99" "all_days_blended_99" "#cccccc" 4 allDays Print
+  plakat
