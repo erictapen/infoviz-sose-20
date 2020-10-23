@@ -624,45 +624,63 @@ allDays =
     "2020-07-16"
   ]
 
-graphicWithLegendsCached :: String -> FilePath -> Text -> Double -> [String] -> IO ()
-graphicWithLegendsCached tram outFile color strokeWidth days =
-  let cachePath = "cache/" <> outFile <> ".svg"
+data WebOrPrint = Web | Print
+
+graphicWithLegendsCached :: String -> FilePath -> Text -> Double -> [String] -> WebOrPrint -> IO ()
+graphicWithLegendsCached tram outFile color strokeWidth days webOrPrint =
+  let cachePath =
+        "cache/" <> outFile
+          <> ( case webOrPrint of
+                 Web -> ""
+                 Print -> "_print"
+             )
+          <> ".svg"
       diagramPath = "cache/" <> outFile <> "_diagram.svg"
    in do
         fileExists <- doesFileExist cachePath
         if fileExists
           then P.putStrLn $ "Cache hit:  " <> cachePath
           else do
+            P.putStrLn $ "Cache miss:  " <> cachePath
             (refTrack, stations) <- readReferenceTrackFromFile $ tram <> ".json"
             diagramCached (TS.pack tram) diagramPath color strokeWidth refTrack days
-            readProcess "./jpeg.sh" [diagramPath] ""
-            jpegContent <- BS.readFile $ diagramPath <> ".jpeg"
+            readProcess "./raster.sh" [diagramPath] ""
+            rasterContent <- case webOrPrint of
+              Web -> BS.readFile $ diagramPath <> ".jpeg"
+              Print -> BS.readFile $ diagramPath <> ".png"
             P.writeFile cachePath
               $ P.show
               $ svg
               $ g_
                 [ Transform_ <<- translate 50 20
                 ]
-              $ ( image_
-                    [ X_ <<- (toText 0),
-                      Y_ <<- (toText 0),
-                      Width_ <<- (toText diagramWidth),
-                      Height_ <<- (toText 200),
-                      XlinkHref_ <<- ("data:image/jpeg;base64," <> encodeBase64 jpegContent)
-                    ]
-                )
-                <> (yLegend (placeOnY 100 refTrack) stations)
-                <> (xLegend placeOnX)
+              $ let legend = (yLegend (placeOnY 100 refTrack) stations) <> (xLegend placeOnX)
+                    image =
+                      ( image_
+                          [ X_ <<- (toText 0),
+                            Y_ <<- (toText 0),
+                            Width_ <<- (toText diagramWidth),
+                            Height_ <<- (toText 200),
+                            XlinkHref_ <<- case webOrPrint of
+                              Web -> ("data:image/jpeg;base64," <> encodeBase64 rasterContent)
+                              Print -> ("data:image/png;base64," <> encodeBase64 rasterContent)
+                          ]
+                      )
+                 in -- For Print we use the transparent Png image, so we can put the legend behind it.
+                    case webOrPrint of
+                      Web -> image <> legend
+                      Print -> legend <> image
 
 main :: IO ()
 main = do
   setLocaleEncoding utf8
-  graphicWithLegendsCached "96" "2020-07-06_96" "black" 1 ["2020-07-06"]
-  graphicWithLegendsCached "96" "all_days_96" "black" 1 allDays
-  graphicWithLegendsCached "91" "all_days_blended_91" "#cccccc" 4 allDays
-  graphicWithLegendsCached "92" "all_days_blended_92" "#cccccc" 4 allDays
-  graphicWithLegendsCached "93" "all_days_blended_93" "#cccccc" 4 allDays
-  graphicWithLegendsCached "94" "all_days_blended_94" "#cccccc" 4 allDays
-  graphicWithLegendsCached "96" "all_days_blended_96" "#cccccc" 4 allDays
-  graphicWithLegendsCached "98" "all_days_blended_98" "#cccccc" 4 allDays
-  graphicWithLegendsCached "99" "all_days_blended_99" "#cccccc" 4 allDays
+  graphicWithLegendsCached "96" "2020-07-06_96" "black" 1 ["2020-07-06"] Web
+  graphicWithLegendsCached "96" "all_days_96" "black" 1 allDays Web
+  graphicWithLegendsCached "91" "all_days_blended_91" "#cccccc" 4 allDays Web
+  graphicWithLegendsCached "92" "all_days_blended_92" "#cccccc" 4 allDays Web
+  graphicWithLegendsCached "93" "all_days_blended_93" "#cccccc" 4 allDays Web
+  graphicWithLegendsCached "94" "all_days_blended_94" "#cccccc" 4 allDays Web
+  graphicWithLegendsCached "96" "all_days_blended_96" "#cccccc" 4 allDays Web
+  graphicWithLegendsCached "98" "all_days_blended_98" "#cccccc" 4 allDays Web
+  graphicWithLegendsCached "99" "all_days_blended_99" "#cccccc" 4 allDays Web
+  graphicWithLegendsCached "91" "all_days_blended_91" "#cccccc" 4 allDays Print
