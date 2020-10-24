@@ -2,6 +2,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
+module Main where
+
 import Codec.Compression.GZip as GZ
 import Control.Concurrent
 import Control.DeepSeq
@@ -12,7 +14,6 @@ import Data.ByteString as BS
 import Data.ByteString.Base64
 import Data.ByteString.Lazy as BL
 import Data.Functor
-import Data.Geospatial
 import Data.IntMap.Strict as IntMap
 import Data.List
 import Data.List.Utils
@@ -22,7 +23,10 @@ import Data.Text.IO as TSIO
 import Data.Time.LocalTime
 import GHC.Generics
 import GHC.IO.Encoding
+import Geo
 import Graphics.Svg
+import Hafas
+import ReferenceTrack
 import Streaming.Osm
 import Streaming.Osm.Types
 import Streaming.Prelude as S
@@ -30,304 +34,6 @@ import System.Directory
 import System.IO
 import System.Process
 import Prelude as P
-
--- | Earth radius in meters
-earthRadius :: Double
-earthRadius = 6371000
-
--- | 3D position on earths surface in meters.
-type Vec = (Double, Double, Double)
-
--- | Geo coordinate
-type GeoCoord = (Latitude, Longitude)
-
--- | project a point on earths surface from geocoordinates to a 3D position in meters.
-geoToVec :: GeoCoord -> Vec
-geoToVec (lat, lon) =
-  let latR = lat * pi / 180
-      lonR = lon * pi / 180
-   in ( earthRadius * cos lonR * cos latR,
-        earthRadius * sin lonR * cos latR,
-        earthRadius * sin latR
-      )
-
--- | Get the length of a 3D vector
--- Example:
--- vecLength $ vecSubtract (geoToVec 52.359792 13.137204) (geoToVec 52.424919 13.053749)
-vecLength :: Vec -> Double
-vecLength (x, y, z) = sqrt $ x * x + y * y + z * z
-
--- | vecSubtract a b = vector from a to b (or ab)
-vecSubtract :: Vec -> Vec -> Vec
-vecSubtract (x1, y1, z1) (x2, y2, z2) = (x2 - x1, y2 - y1, z2 - z1)
-
--- | Distance in meters between two GeoCoord.
-distance :: GeoCoord -> GeoCoord -> Meter
-distance a b = vecLength $ vecSubtract (geoToVec a) (geoToVec b)
-
--- | A and B are two connected Locations on the exact track. C is our inexact
--- mesurement. This function maps C to the track andreturns the mapped distance
--- we treveled from A in meters.
--- Example:
--- mapToTrack (52.415193, 13.050288) (52.415795, 13.050324) (52.415283, 13.050306)
--- This should Just be about 10.3 meters.
-mapToTrack :: Double -> GeoCoord -> GeoCoord -> GeoCoord -> Maybe Double
-mapToTrack tolerance a b c =
-  let (abx, aby, abz) = vecSubtract (geoToVec a) (geoToVec b)
-      (acx, acy, acz) = vecSubtract (geoToVec a) (geoToVec c)
-      abLength = vecLength (abx, aby, abz)
-      res = (abx * acx + aby * acy + abz * acz) / abLength
-   in -- We only accpt the mapping if it is on the track segment or at least
-      -- within a specified amount of meters of it.
-      if (- tolerance) <= res && res <= (abLength + tolerance)
-        then Just res
-        else Nothing
-
--- | This is messy. We take the part of the filename containing the timestamp,
--- encode it to a JSON string and then decode it, as Aeson can parse a
--- LocalTime from String and I couldn't find any other method to do that...
-parseTime' :: String -> LocalTime
-parseTime' str = case (Aeson.eitherDecode $ Aeson.encode str) of
-  (Right res) -> res
-  (Left res) -> error $ "Couldn't deserialise date " <> str
-
--- | The deserialization of the per vehicle object from the HAFAS JSON.
--- Unfortunately we can't really store the timestamp in the structure, as it is
--- not part of the JSON, so we have to carry it separately..
-data Vehicle
-  = Vehicle
-      { tramId :: Text,
-        latitude :: Latitude,
-        longitude :: Longitude,
-        trip :: Int
-      }
-  deriving (Show)
-
--- | Vehicle is directly derived from the JSON data.
-instance FromJSON Vehicle where
-  parseJSON = withObject "Vehicle" $ \o -> do
-    line <- o .: "line"
-    trip <- o .: "trip"
-    tramId <- line .: "id"
-    location <- o .: "location"
-    latitude <- location .: "latitude"
-    longitude <- location .: "longitude"
-    return Vehicle {..}
-
-instance ToJSON Vehicle where
-  toJSON (Vehicle {tramId = tramId, latitude = latitude, longitude = longitude, trip = trip}) =
-    object
-      [ "line" .= (object ["id" .= tramId]),
-        "trip" .= trip,
-        "location" .= (object ["latitude" .= latitude, "longitude" .= longitude])
-      ]
-
--- | All the data about one Tram connection, e.g. Line 96 from
--- Marie-Juchacz-Straße to Campus Jungfernsee. The outer list contains the
--- individual segments, that are drawn in the final graphic.
-data Line = Line Text [(TripId, [(LocalTime, GeoCoord)])]
-
-type TripId = Int
-
--- | Filter function to grab specific datapoints, e.g. everything from one ride
--- or one tram line.
-data Filter = Filter Text ((LocalTime, Vehicle) -> Bool)
-
--- | So we can combine Filters with (<>).
-instance Semigroup Filter where
-  (Filter name1 f) <> (Filter name2 g) = Filter
-    (name1 <> "-" <> name2)
-    $ \x -> (f x) || (g x)
-
--- | Read all timestamps and Vehicles from a .json.gz file, which is itself the
--- result of one HAFAS API request. We do not filter here.
-getVehicles :: FilePath -> IO [(LocalTime, Vehicle)]
-getVehicles path =
-  -- ./raw/2020-07-08/2020-07-08T16:05:14+02:00.json.gz
-  -- We want this:    ^^^^^^^^^^^^^^^^^^^
-  let timeStamp = parseTime' $ P.take 19 $ P.drop 17 path
-   in do
-        gzippedContent <- BL.readFile path
-        case (Aeson.eitherDecode $ GZ.decompress gzippedContent) of
-          (Right res) -> do
-            return $ P.zip (P.repeat timeStamp) res
-          (Left err) -> do
-            System.IO.hPutStrLn stderr err
-            return []
-
--- | Read a list of .json.gz files in, decode them and filter them using Filter
--- functions.
-getAllVehicles :: FilePath -> [FilePath] -> Filter -> IO [(LocalTime, Vehicle)]
-getAllVehicles _ [] _ = return []
-getAllVehicles basePath (f : fs) (Filter filterName vehicleFilter) = do
-  vehicles <- getVehicles $ basePath <> f
-  nextVehicles <- getAllVehicles basePath fs $ Filter filterName vehicleFilter
-  return $ (P.filter vehicleFilter vehicles) ++ nextVehicles
-
--- | This is a proxy for getAllVehicles, but uses a cached JSON file in
--- ./cache/ that is named after the used Filter.
-getAllVehiclesCached :: [String] -> Filter -> IO [Line]
-getAllVehiclesCached [] _ = return []
-getAllVehiclesCached (day : days) (Filter filterName vehicleFilter) =
-  let cacheName = "./cache/" <> (TS.pack day) <> "-" <> filterName <> ".json"
-      cachePath = TS.unpack cacheName
-      basePath = "./raw/" <> day <> "/"
-      -- Stupid conversion functions I needed to write in order to make JSON
-      -- serialization possible.
-      fromCache :: [(TripId, [(LocalTime, GeoCoord)])] -> Line
-      fromCache ds = Main.Line filterName ds
-      toCache :: Line -> [(TripId, [(LocalTime, GeoCoord)])]
-      toCache (Main.Line _ ds) = ds
-   in do
-        fileExists <- doesFileExist cachePath
-        nextLine <- getAllVehiclesCached days (Filter filterName vehicleFilter)
-        if fileExists
-          then do
-            TSIO.putStrLn $ "Cache hit:  " <> cacheName
-            cacheContent <- BL.readFile cachePath
-            case (Aeson.eitherDecode cacheContent) of
-              (Right res) -> do
-                return $ (fromCache $ res) : nextLine
-              (Left err) -> do
-                System.IO.hPutStrLn stderr $ "Can't read from cache " <> cachePath <> ": " <> err
-                return []
-          else do
-            TSIO.putStrLn $ "Cache miss: " <> cacheName
-            fileList <- listDirectory basePath
-            rawRes <- getAllVehicles basePath fileList (Filter filterName vehicleFilter)
-            let res = transformVehicles rawRes
-             in do
-                  BL.writeFile cachePath $ Aeson.encode $ toCache res
-                  return $ res : nextLine
-
-compareTimeStamp :: (LocalTime, GeoCoord) -> (LocalTime, GeoCoord) -> Ordering
-compareTimeStamp a b = compare (fst a) (fst b)
-
--- | Split when the points are more than 277m apart, the distance a Tram at
--- 100km/h travels in 10s.
-splitPredicate :: (LocalTime, GeoCoord) -> (LocalTime, GeoCoord) -> Bool
-splitPredicate (_, p1) (_, p2) = distance p1 p2 > 277 -- (100000 / 360)
-
--- | Example:
--- splitTrip [(parseTime' "2020-07-09 12:00:05", (13.068, 52.383)), (parseTime' "2020-07-09 12:00:10", (13.053, 52.402))]
-splitTrip :: [(LocalTime, GeoCoord)] -> [[(LocalTime, GeoCoord)]]
-splitTrip [] = []
-splitTrip ds =
-  let seg = splitTrip' ds
-   in (seg : (splitTrip $ P.drop (P.length seg) ds))
-
-splitTrip' :: [(LocalTime, GeoCoord)] -> [(LocalTime, GeoCoord)]
-splitTrip' [] = []
-splitTrip' (a : []) = a : []
-splitTrip' (a : b : ds) =
-  if splitPredicate a b
-    then (a : [])
-    else (a : (splitTrip' (b : ds)))
-
--- | A lot of logic happens here, as the raw data is in no good shape for our use case. We work on all the data points belonging to a tram line and partition them into ordered segments, which correspond to uninterrupted paths in the final graphic. This partitioning is non-trivial, as the following conditions must be true:
--- - Every path contains only data points of one tripId.
--- - There can be multiple paths with the same tripId.
--- - The data points in each path are sorted by time.
--- - No path has a gap, where the points are more than a certain time/geodistance apart.
-transformVehicles :: [(LocalTime, Vehicle)] -> Line
-transformVehicles vehicles =
-  let -- Bring the data into a structure where we can access TripId more
-      -- easily.
-      transformDatapoint :: (LocalTime, Vehicle) -> (TripId, [(LocalTime, GeoCoord)])
-      transformDatapoint (t, v) = (trip v, [(t, (latitude v, longitude v))])
-      -- Every "bucket" belongs to exactly one TripId. The datapoints in the
-      -- buckets are sorted.
-      mapByTripId :: [(TripId, [(LocalTime, GeoCoord)])]
-      mapByTripId =
-        IntMap.toList
-          $ IntMap.map (sortBy compareTimeStamp)
-          $ fromListWith (++)
-          $ P.map transformDatapoint vehicles
-      -- Split the "trips" along a splitPredicate. Whenever splitPredicate is
-      -- true for two data points, they should not be connected in the final
-      -- result.
-      splitTrips :: [(TripId, [(LocalTime, GeoCoord)])] -> [(TripId, [(LocalTime, GeoCoord)])]
-      splitTrips [] = []
-      splitTrips ((tripId, ds) : trips) =
-        let splitted :: [(TripId, [(LocalTime, GeoCoord)])]
-            splitted = P.map (\ds' -> (tripId, ds')) $ splitTrip ds
-         in splitted ++ splitTrips trips
-   in Main.Line "" $ splitTrips mapByTripId
-
--- | All data points for e.g. Tram 96, in both directions.
-filterTram :: Text -> Filter
-filterTram tram = Filter ("filter" <> tram) $ \(_, v) -> tramId v == tram
-
-type ReferenceTrack = [(Meter, GeoCoord)]
-
-data ReferenceTrackJson
-  = ReferenceTrackJson
-      { label :: Text,
-        coordinates :: [GeoCoord],
-        stations :: [(Text, GeoCoord)]
-      }
-  deriving (Generic, Show)
-
-instance FromJSON ReferenceTrackJson
-
--- | Openstreetmap doesn't have complete data about Potsdam train tracks and I'm too dumb to use their editor. So we manually add sone stuff here.
-completeReferenceTrack :: ReferenceTrackJson -> ReferenceTrackJson
-completeReferenceTrack rt@(ReferenceTrackJson label coordinates stations)
-  -- Bad bad bad ugly hack. Tram 99 actually starts at Bisamkiez, not Platz der Einheit/Nord. So we have to subtract the first two stations (and their coordinates) and then append the nine more stations from Bisamkiez on.
-  | (label == "99") =
-    let bisamkiezToPdEBF :: [(Text, GeoCoord)]
-        bisamkiezToPdEBF =
-          [ ("Biesamkiez", (52.3733498, 13.1011966)),
-            ("Magnus-Zeller-Platz", (52.3751684, 13.0912547)),
-            ("Waldstraße/Horstweg", (52.3775220, 13.0829446)),
-            ("Kunersdorfer Straße", (52.3805657, 13.0784618)),
-            ("Sporthalle", (52.3826321, 13.0754337)),
-            ("Friedhöfe", (52.3860868, 13.0715218)),
-            ("S Potsdam Hauptbahnhof", (52.3910046, 13.0652694)),
-            ("Lange Brücke", (52.3923948, 13.0635833)),
-            ("Alter Markt/Landtag", (52.3951453, 13.0592313))
-          ]
-     in ReferenceTrackJson
-          label
-          ((P.map snd bisamkiezToPdEBF) ++ (P.drop 33 coordinates))
-          (bisamkiezToPdEBF ++ (P.drop 2 stations))
-  | otherwise = rt
-
-readReferenceTrackFromFile :: FilePath -> IO (ReferenceTrack, [(Text, GeoCoord)])
-readReferenceTrackFromFile f = do
-  fileContent <- BL.readFile $ "./cache/" <> f
-  case (Aeson.eitherDecode fileContent) of
-    (Right res) ->
-      let completedRes = completeReferenceTrack res
-       in return (enrichTrackWithLength 0 $ coordinates completedRes, stations completedRes)
-    (Left err) -> error "Can't deserialise Referencetrack."
-
-type Meter = Double
-
--- | This returns the distance a tram has traveled, starting from the start of the track, in meters.
--- Shouldn't be < 0 or longer than the track, but I'm not sure!
-locateCoordOnTrackLength :: Double -> ReferenceTrack -> GeoCoord -> Maybe Double
-locateCoordOnTrackLength tolerance track coord =
-  let compareByDistance (_, a) (_, b) = compare (distance coord a) (distance coord b)
-      compareByPosition (a, _) (b, _) = compare a b
-      -- The two trackpoints closest to coord, sorted by their position on the track.
-      twoClosestTrackPoints =
-        sortBy compareByPosition
-          $ P.take 2
-          $ sortBy compareByDistance track
-      (currentMark, firstPoint) = twoClosestTrackPoints !! 0
-      (_, secondPoint) = twoClosestTrackPoints !! 1
-   in case mapToTrack tolerance firstPoint secondPoint coord of
-        (Just v) -> Just $ (currentMark + v)
-        Nothing -> Nothing
-
--- | Put the current kilometre mark on the track. Needs a starting Meter, as it
--- operates recursviely.
-enrichTrackWithLength :: Meter -> [GeoCoord] -> ReferenceTrack
-enrichTrackWithLength _ [] = []
-enrichTrackWithLength m (x : []) = (m, x) : []
-enrichTrackWithLength m (x : next : xs) =
-  (m, x) : (enrichTrackWithLength (m + distance x next) (next : xs))
 
 -- | One pixel resolution for ten seconds, as we took samples this frequent.
 diagramWidth :: Double
@@ -339,11 +45,7 @@ diagramHeightFactor = 0.02
 
 -- | Height of the diagram. It is computed from the length of a ReferenceTrack, as we show absolute values.
 diagramHeight :: ReferenceTrack -> Double
-diagramHeight = diagramHeightPlus 0
-
--- | Helper function to add something to the height.
-diagramHeightPlus :: Double -> ReferenceTrack -> Double
-diagramHeightPlus summand refTrack = (+) summand $ (*) diagramHeightFactor $ fst $ P.last refTrack
+diagramHeight refTrack = (*) diagramHeightFactor $ fst $ P.last refTrack
 
 -- document root
 svg :: Text -> Text -> Element -> Element
@@ -431,13 +133,13 @@ placeOnY tolerance refTrack v = fmap (diagramHeightFactor *) $ locateCoordOnTrac
 diagramCached :: Text -> FilePath -> Text -> Double -> ReferenceTrack -> [String] -> IO ()
 diagramCached tram outPath color strokeWidth referenceTrack days =
   let cachePath = outPath
-      document :: [Line] -> Element
+      document :: [Hafas.Line] -> Element
       document lines =
         svgInner (toText $ diagramHeight referenceTrack) $
           (style_ [] "path { mix-blend-mode: multiply; }")
             <> ( P.mconcat $
                    P.map
-                     ( \(Main.Line _ trips) ->
+                     ( \(Hafas.Line _ trips) ->
                          P.mconcat
                            $ P.map
                              ( tripToElement
@@ -456,8 +158,8 @@ diagramCached tram outPath color strokeWidth referenceTrack days =
           then P.putStrLn $ "Cache hit:  " <> cachePath
           else do
             P.putStrLn $ "Cache miss: " <> cachePath
-            linesOneDay <- getAllVehiclesCached days $ filterTram tram
-            P.writeFile cachePath $ P.show $ document linesOneDay
+            lines <- getAllVehiclesCached days $ filterTram tram
+            P.writeFile cachePath $ P.show $ document lines
 
 instance NFData Element where
   rnf e = e `seq` ()
@@ -586,8 +288,8 @@ extractReferenceTrackCached =
                   return [referenceTrack]
 
 -- | Show a line as an CSV table, just a helper function I'll not use often.
-printCSV :: Line -> String
-printCSV (Main.Line _ trips) =
+printCSV :: Hafas.Line -> String
+printCSV (Hafas.Line _ trips) =
   (++) "id, time, lat, lon\n"
     $ Data.List.Utils.join "\n"
     $ P.concat
@@ -659,7 +361,7 @@ graphicWithLegendsCached tram outFile color strokeWidth days webOrPrint =
               Print -> BS.readFile $ diagramPath <> ".png"
             P.writeFile cachePath
               $ P.show
-              $ svg (toText $ diagramHeightPlus (40 + 40) refTrack) (toText $ diagramWidth + 100 + 20 + 20)
+              $ svg (toText $ (+) (40 + 40) $ diagramHeight refTrack) (toText $ diagramWidth + 100 + 20 + 20)
               $ g_
                 [ Transform_ <<- translate 100 20
                 ]
