@@ -11,21 +11,13 @@ module Diagram
   )
 where
 
-import Control.DeepSeq
-import Control.Monad.Trans.Resource
-import Data.Aeson as Aeson
-import Data.ByteString.Lazy as BL
 import Data.Maybe
 import Data.Text as TS
-import Data.Text.IO as TSIO
 import Data.Time.LocalTime
 import Geo
 import Graphics.Svg
 import Hafas
 import ReferenceTrack
-import Streaming.Osm
-import Streaming.Osm.Types
-import Streaming.Prelude as S
 import System.Directory
 import Prelude as P
 
@@ -142,60 +134,4 @@ diagramCached tram outPath color strokeWidth referenceTrack days =
             P.putStrLn $ "Cache miss: " <> cachePath
             lines <- getAllVehiclesCached days $ filterTram tram
             P.writeFile cachePath $ P.show $ document lines
-
-instance NFData Element where
-  rnf e = e `seq` ()
-
--- | This is essentially dead code. It was a try to replicate the behaviour of the reference-track rust crate.
-extractReferenceTrackCached :: IO [ReferenceTrack]
-extractReferenceTrackCached =
-  let dataPath = "./raw/brandenburg-latest.osm.pbf"
-      cachePath = "./cache/reference-tracks.json"
-      -- filter through all relations so we get the one we need
-      filterRelations :: Relation -> Bool
-      filterRelations (Relation {_rinfo = Nothing}) = False
-      filterRelations (Relation {_rinfo = Just (Info {_id = relationId})}) = relationId == 178663 -- Tram96
-      filterWays :: [Int] -> Way -> Bool
-      filterWays ids (Way {_winfo = Nothing}) = False
-      filterWays ids (Way {_winfo = Just (Info {_id = wayId})}) = P.elem wayId ids
-      filterNodes :: [Int] -> Node -> Bool
-      filterNodes ids (Node {_ninfo = Nothing}) = False
-      filterNodes ids (Node {_ninfo = Just (Info {_id = nodeId})}) = P.elem nodeId ids
-      osmToRefTrack :: [Node] -> ReferenceTrack
-      osmToRefTrack [] = []
-      osmToRefTrack (node : nodes) = (0, (_lat node, _lng node)) : (osmToRefTrack nodes)
-   in do
-        fileExists <- doesFileExist cachePath
-        if fileExists
-          then do
-            TSIO.putStrLn $ "Cache hit:  " <> TS.pack cachePath
-            cacheContent <- BL.readFile cachePath
-            return $ fromJust $ Aeson.decode cacheContent
-          else do
-            TSIO.putStrLn $ "Cache miss: " <> TS.pack cachePath
-            osmRelations <-
-              runResourceT
-                . S.head
-                . S.filter filterRelations
-                $ relations . blocks
-                $ blobs dataPath
-            TSIO.putStrLn $ TS.pack $ P.show osmRelations
-            osmWays <-
-              runResourceT
-                . toList_
-                . S.filter (filterWays $ P.map _mref $ _members $ fromJust $ fst' osmRelations)
-                $ ways . blocks
-                $ blobs dataPath
-            TSIO.putStrLn $ TS.pack $ P.show osmWays
-            osmNodes <-
-              runResourceT
-                . toList_
-                . S.filter (filterNodes $ P.concat $ P.map _nodeRefs osmWays)
-                $ nodes . blocks
-                $ blobs dataPath
-            TSIO.putStrLn $ TS.pack $ P.show $ P.length osmNodes
-            let referenceTrack = osmToRefTrack osmNodes
-             in do
-                  -- BL.writeFile cachePath $ Aeson.encode referenceTracks
-                  return [referenceTrack]
 

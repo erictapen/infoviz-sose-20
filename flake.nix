@@ -60,7 +60,6 @@
                     MissingH
                     hcoord
                     svg-builder
-                    streaming-osm
                     parallel
                     base64
                   ]
@@ -135,7 +134,6 @@
                     MissingH
                     hcoord
                     svg-builder
-                    streaming-osm
                     parallel
                     base64
                   ]
