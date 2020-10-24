@@ -8,6 +8,7 @@ module Diagram
     placeOnX,
     placeOnY,
     diagramCached,
+    Diagram (Diagram),
   )
 where
 
@@ -33,8 +34,9 @@ diagramHeightFactor = 0.02
 diagramHeight :: ReferenceTrack -> Double
 diagramHeight refTrack = (*) diagramHeightFactor $ fst $ P.last refTrack
 
-svgInner :: Text -> Element -> Element
-svgInner height content =
+-- | Construct a SVG document from a height and the content Element.
+svg :: Text -> Element -> Element
+svg height content =
   doctype
     <> Graphics.Svg.with
       (svg11_ content)
@@ -97,41 +99,47 @@ tripToElement' fx fy ((t, v) : ds) = case (fy v) of
   Just y -> lA (fx t) y <> tripToElement' fx fy ds
   Nothing -> tripToElement' fx fy ds
 
+-- | Place an x value (which is a time stamp) on the x-axis. 10 seconds amount to one pixel.
 placeOnX :: TimeOfDay -> Double
 placeOnX t = (*) 0.1 $ seconds t
 
+-- | Try to place data on the y-axis. Needs a tolerance value and a ReferenceTrack.
 placeOnY :: Double -> ReferenceTrack -> GeoCoord -> Maybe Double
 placeOnY tolerance refTrack v = fmap (diagramHeightFactor *) $ locateCoordOnTrackLength tolerance refTrack v
 
--- | Transforms a Line to an SVG ELement.
-diagramCached :: Text -> FilePath -> Text -> Double -> ReferenceTrack -> [String] -> IO ()
-diagramCached tram outPath color strokeWidth referenceTrack days =
-  let cachePath = outPath
-      document :: [Hafas.Line] -> Element
-      document lines =
-        svgInner (toText $ diagramHeight referenceTrack) $
-          (style_ [] "path { mix-blend-mode: multiply; }")
-            <> ( P.mconcat $
-                   P.map
-                     ( \(Hafas.Line _ trips) ->
-                         P.mconcat
-                           $ P.map
-                             ( tripToElement
-                                 color
-                                 strokeWidth
-                                 (placeOnX . localTimeOfDay)
-                                 (placeOnY 10 referenceTrack)
-                             )
-                           $ trips
-                     )
-                     lines
+-- | Diagram metadata.
+data Diagram = Diagram Text FilePath Text Double ReferenceTrack [String]
+
+-- | Transforms some metadata and a Line to an SVG ELement.
+diagram :: Diagram -> [Hafas.Line] -> Element
+diagram (Diagram _ _ color strokeWidth refTrack dataFiles) lines =
+  svg (toText $ diagramHeight refTrack) $
+    (style_ [] "path { mix-blend-mode: multiply; }")
+      <> ( P.mconcat $
+             P.map
+               ( \(Hafas.Line _ trips) ->
+                   P.mconcat
+                     $ P.map
+                       ( tripToElement
+                           color
+                           strokeWidth
+                           (placeOnX . localTimeOfDay)
+                           (placeOnY 10 refTrack)
+                       )
+                     $ trips
                )
+               lines
+         )
+
+-- | Effectful and caching version of diagram.
+diagramCached :: Diagram -> IO ()
+diagramCached diagramData@(Diagram tramId outFile _ _ _ dataFiles) =
+  let cachePath = outFile
    in do
         fileExists <- doesFileExist cachePath
         if fileExists
           then P.putStrLn $ "Cache hit:  " <> cachePath
           else do
             P.putStrLn $ "Cache miss: " <> cachePath
-            lines <- getAllVehiclesCached days $ filterTram tram
-            P.writeFile cachePath $ P.show $ document lines
-
+            lines <- getAllVehiclesCached dataFiles $ filterTram tramId
+            P.writeFile cachePath $ P.show $ diagram diagramData lines

@@ -120,7 +120,15 @@ graphicWithLegendsCached tram outFile color strokeWidth days webOrPrint =
           else do
             P.putStrLn $ "Cache miss: " <> cachePath
             (refTrack, stations) <- readReferenceTrackFromFile $ tram <> ".json"
-            diagramCached (TS.pack tram) diagramPath color strokeWidth refTrack days
+            diagramCached
+              ( Diagram
+                  (TS.pack tram)
+                  diagramPath
+                  color
+                  strokeWidth
+                  refTrack
+                  days
+              )
             readProcess "./raster.sh" [diagramPath] ""
             rasterContent <- case webOrPrint of
               Web -> BS.readFile $ diagramPath <> ".jpeg"
