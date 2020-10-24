@@ -18,8 +18,6 @@ import System.Directory
 import System.Process
 import Prelude as P
 
-data WebOrPrint = Web | Print
-
 formatTime :: TimeOfDay -> Text
 formatTime t =
   TS.pack $
@@ -103,15 +101,11 @@ svg height width content =
         ViewBox_ <<- "0 0 " <> width <> " " <> height
       ]
 
-graphicWithLegendsCached :: String -> FilePath -> Text -> Double -> [String] -> WebOrPrint -> IO ()
-graphicWithLegendsCached tram outFile color strokeWidth days webOrPrint =
-  let cachePath =
-        "./cache/" <> outFile
-          <> ( case webOrPrint of
-                 Web -> ""
-                 Print -> "_print"
-             )
-          <> ".svg"
+-- | A graphic is a finished SVG file that can be presented e.g. in the
+-- datadossier. It consists of a diagram and legends of x- and y-axis.
+graphicWithLegendsCached :: String -> FilePath -> Text -> Double -> [String] -> IO ()
+graphicWithLegendsCached tram outFile color strokeWidth days =
+  let cachePath = "./cache/" <> outFile <> ".svg"
       diagramPath = "./cache/" <> outFile <> "_diagram.svg"
    in do
         fileExists <- doesFileExist cachePath
@@ -130,31 +124,23 @@ graphicWithLegendsCached tram outFile color strokeWidth days webOrPrint =
                   days
               )
             readProcess "./raster.sh" [diagramPath] ""
-            rasterContent <- case webOrPrint of
-              Web -> BS.readFile $ diagramPath <> ".jpeg"
-              Print -> BS.readFile $ diagramPath <> ".png"
+            rasterContent <- BS.readFile $ diagramPath <> ".jpeg"
             P.writeFile cachePath
               $ P.show
               $ svg (toText $ (+) (40 + 40) $ diagramHeight refTrack) (toText $ diagramWidth + 100 + 20 + 20)
               $ g_
                 [ Transform_ <<- translate 100 20
                 ]
-              $ let legend = (yLegend (placeOnY 100 refTrack) stations) <> (xLegend placeOnX)
-                    image =
-                      ( image_
-                          [ X_ <<- (toText 0),
-                            Y_ <<- (toText 0),
-                            Width_ <<- (toText diagramWidth),
-                            Height_ <<- (toText $ diagramHeight refTrack),
-                            XlinkHref_ <<- case webOrPrint of
-                              Web -> ("data:image/jpeg;base64," <> encodeBase64 rasterContent)
-                              Print -> ("data:image/png;base64," <> encodeBase64 rasterContent)
-                          ]
-                      )
-                 in -- For Print we use the transparent Png image, so we can put the legend behind it.
-                    case webOrPrint of
-                      Web -> image <> legend
-                      Print -> legend <> image
+              $ ( image_
+                    [ X_ <<- (toText 0),
+                      Y_ <<- (toText 0),
+                      Width_ <<- (toText diagramWidth),
+                      Height_ <<- (toText $ diagramHeight refTrack),
+                      XlinkHref_ <<- ("data:image/jpeg;base64," <> encodeBase64 rasterContent)
+                    ]
+                )
+                <> (yLegend (placeOnY 100 refTrack) stations)
+                <> (xLegend placeOnX)
 
 plakat :: IO ()
 plakat = do
@@ -226,20 +212,13 @@ allDays =
 main :: IO ()
 main = do
   setLocaleEncoding utf8
-  graphicWithLegendsCached "96" "2020-07-06_96" "black" 1 ["2020-07-06"] Web
-  graphicWithLegendsCached "96" "all_days_96" "black" 1 allDays Web
-  graphicWithLegendsCached "91" "all_days_blended_91" "#cccccc" 4 allDays Web
-  graphicWithLegendsCached "92" "all_days_blended_92" "#cccccc" 4 allDays Web
-  graphicWithLegendsCached "93" "all_days_blended_93" "#cccccc" 4 allDays Web
-  graphicWithLegendsCached "94" "all_days_blended_94" "#cccccc" 4 allDays Web
-  graphicWithLegendsCached "96" "all_days_blended_96" "#cccccc" 4 allDays Web
-  graphicWithLegendsCached "98" "all_days_blended_98" "#cccccc" 4 allDays Web
-  graphicWithLegendsCached "99" "all_days_blended_99" "#cccccc" 4 allDays Web
-  graphicWithLegendsCached "91" "all_days_blended_91" "#cccccc" 4 allDays Print
-  graphicWithLegendsCached "92" "all_days_blended_92" "#cccccc" 4 allDays Print
-  graphicWithLegendsCached "93" "all_days_blended_93" "#cccccc" 4 allDays Print
-  graphicWithLegendsCached "94" "all_days_blended_94" "#cccccc" 4 allDays Print
-  graphicWithLegendsCached "96" "all_days_blended_96" "#cccccc" 4 allDays Print
-  graphicWithLegendsCached "98" "all_days_blended_98" "#cccccc" 4 allDays Print
-  graphicWithLegendsCached "99" "all_days_blended_99" "#cccccc" 4 allDays Print
+  graphicWithLegendsCached "96" "2020-07-06_96" "black" 1 ["2020-07-06"]
+  graphicWithLegendsCached "96" "all_days_96" "black" 1 allDays
+  graphicWithLegendsCached "91" "all_days_blended_91" "#cccccc" 4 allDays
+  graphicWithLegendsCached "92" "all_days_blended_92" "#cccccc" 4 allDays
+  graphicWithLegendsCached "93" "all_days_blended_93" "#cccccc" 4 allDays
+  graphicWithLegendsCached "94" "all_days_blended_94" "#cccccc" 4 allDays
+  graphicWithLegendsCached "96" "all_days_blended_96" "#cccccc" 4 allDays
+  graphicWithLegendsCached "98" "all_days_blended_98" "#cccccc" 4 allDays
+  graphicWithLegendsCached "99" "all_days_blended_99" "#cccccc" 4 allDays
   plakat
