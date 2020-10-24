@@ -711,7 +711,7 @@ plakat = do
               XlinkHref_ <<- filePath
             ]
         )
-          <> diagrams (cursorHeight + height) rs
+          <> diagrams (cursorHeight + height + (0.25 * 594 / 8)) rs
    in do
         P.print $ P.show heights
         P.writeFile "./cache/plakat.svg" $ P.show
