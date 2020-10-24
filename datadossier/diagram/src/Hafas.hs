@@ -16,6 +16,7 @@ import Data.ByteString.Lazy as BL
 import qualified Data.Geospatial as Geospatial
 import Data.IntMap.Strict as IntMap
 import Data.List
+import Data.List.Utils
 import Data.Text as TS
 import Data.Text.IO as TSIO
 import Data.Time.LocalTime
@@ -32,7 +33,27 @@ data Line = Line Text [(TripId, [(LocalTime, GeoCoord)])]
 
 type TripId = Int
 
---
+-- | Show a line as an CSV table, just a helper function I'll not use often.
+printCSV :: Line -> String
+printCSV (Line _ trips) =
+  (++) "id, time, lat, lon\n"
+    $ Data.List.Utils.join "\n"
+    $ P.concat
+    $ P.map
+      ( \(tripId, ds) ->
+          P.map
+            ( \(t, c) ->
+                (P.show tripId)
+                  ++ ","
+                  ++ (P.show t)
+                  ++ ","
+                  ++ (P.show $ fst c)
+                  ++ ","
+                  ++ (P.show $ snd c)
+            )
+            ds
+      )
+      trips
 
 -- | This is messy. We take the part of the filename containing the timestamp,
 -- encode it to a JSON string and then decode it, as Aeson can parse a
