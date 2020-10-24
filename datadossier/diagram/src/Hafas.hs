@@ -11,33 +11,18 @@ module Hafas
 where
 
 import Codec.Compression.GZip as GZ
-import Control.Concurrent
-import Control.DeepSeq
-import Control.Monad.Trans.Resource
-import Control.Parallel.Strategies
 import Data.Aeson as Aeson
-import Data.ByteString as BS
-import Data.ByteString.Base64
 import Data.ByteString.Lazy as BL
-import Data.Functor
 import qualified Data.Geospatial as Geospatial
 import Data.IntMap.Strict as IntMap
 import Data.List
-import Data.List.Utils
-import Data.Maybe
 import Data.Text as TS
 import Data.Text.IO as TSIO
 import Data.Time.LocalTime
-import GHC.Generics
-import GHC.IO.Encoding
 import Geo
 import Graphics.Svg
-import Streaming.Osm
-import Streaming.Osm.Types
-import Streaming.Prelude as S
 import System.Directory
 import System.IO
-import System.Process
 import Prelude as P
 
 -- | All the data about one Tram connection, e.g. Line 96 from
