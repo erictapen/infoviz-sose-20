@@ -228,6 +228,7 @@ yLegend fy ((label, coord) : stations) =
   )
     <> yLegend fy stations
 
+-- | This is essentially dead code. It was a try to replicate the behaviour of the reference-track rust crate.
 extractReferenceTrackCached :: IO [ReferenceTrack]
 extractReferenceTrackCached =
   let dataPath = "./raw/brandenburg-latest.osm.pbf"
