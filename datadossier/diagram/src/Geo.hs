@@ -10,8 +10,9 @@ module Geo
     mapToTrack,
   )
 where
-import Prelude as P
+
 import Data.Geospatial
+import Prelude as P
 
 type Meter = Double
 
