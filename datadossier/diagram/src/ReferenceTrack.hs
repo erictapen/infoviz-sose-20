@@ -7,6 +7,8 @@ module ReferenceTrack
     readReferenceTrackFromFile,
     locateCoordOnTrackLength,
     trackLength,
+    TrackPoint (TrackPoint),
+    fromReferenceTrack,
   )
 where
 
@@ -15,6 +17,7 @@ import Data.ByteString.Lazy as BL
 import Data.List
 import Data.Maybe
 import Data.Text as TS
+import Data.Trees.KdTree
 import GHC.Generics
 import Geo
 import Graphics.Svg
@@ -32,6 +35,10 @@ data ReferenceTrackJson
   deriving (Generic, Show)
 
 instance FromJSON ReferenceTrackJson
+
+-- | Convert a ReferenceTrack into a KdTree of TrackPoints.
+fromReferenceTrack :: ReferenceTrack -> KdTree TrackPoint
+fromReferenceTrack rt = fromList $ P.map (\(m, g) -> TrackPoint (geoToPoint g) m) rt
 
 -- | Total length of a track in meters.
 trackLength :: ReferenceTrack -> Meter
@@ -62,18 +69,15 @@ completeReferenceTrack rt@(ReferenceTrackJson label coordinates stations)
 
 -- | This returns the distance a tram has traveled, starting from the start of the track, in meters.
 -- Shouldn't be < 0 or longer than the track, but I'm not sure!
-locateCoordOnTrackLength :: Double -> ReferenceTrack -> GeoCoord -> Maybe Double
-locateCoordOnTrackLength tolerance track coord =
-  let compareByDistance (_, a) (_, b) = compare (distance coord a) (distance coord b)
-      compareByPosition (a, _) (b, _) = compare a b
+locateCoordOnTrackLength :: Double -> KdTree TrackPoint -> GeoCoord -> Maybe Double
+locateCoordOnTrackLength tolerance refTree coord =
+  let compareByPosition (TrackPoint _ m1) (TrackPoint _ m2) = compare m1 m2
       -- The two trackpoints closest to coord, sorted by their position on the track.
       twoClosestTrackPoints =
-        sortBy compareByPosition
-          $ P.take 2
-          $ sortBy compareByDistance track
-      (currentMark, firstPoint) = twoClosestTrackPoints !! 0
-      (_, secondPoint) = twoClosestTrackPoints !! 1
-   in case mapToTrack tolerance firstPoint secondPoint coord of
+        sortBy compareByPosition $ kNearestNeighbors refTree 2 $ geoToTrackPoint 0 coord
+      (TrackPoint firstPoint currentMark) = twoClosestTrackPoints !! 0
+      (TrackPoint secondPoint _) = twoClosestTrackPoints !! 1
+   in case mapToTrack tolerance firstPoint secondPoint (geoToPoint coord) of
         (Just v) -> Just $ (currentMark + v)
         Nothing -> Nothing
 
@@ -83,7 +87,7 @@ enrichTrackWithLength :: Meter -> [GeoCoord] -> ReferenceTrack
 enrichTrackWithLength _ [] = []
 enrichTrackWithLength m (x : []) = (m, x) : []
 enrichTrackWithLength m (x : next : xs) =
-  (m, x) : (enrichTrackWithLength (m + distance x next) (next : xs))
+  (m, x) : (enrichTrackWithLength (m + distance (geoToPoint x) (geoToPoint next)) (next : xs))
 
 readReferenceTrackFromFile :: FilePath -> IO (ReferenceTrack, [(Text, GeoCoord)])
 readReferenceTrackFromFile f = do

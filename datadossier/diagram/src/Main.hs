@@ -142,7 +142,7 @@ graphicWithLegendsCached tram outFile color strokeWidth days =
                       XlinkHref_ <<- ("data:image/jpeg;base64," <> encodeBase64 rasterContent)
                     ]
                 )
-                <> (yLegend diagramWidth (placeOnY diagramHeightFactor 100 refTrack) stations)
+                <> (yLegend diagramWidth (placeOnY diagramHeightFactor 100 $ fromReferenceTrack refTrack) stations)
                 <> (xLegend $ placeOnX diagramWidth)
 
 tramIds :: [Text]

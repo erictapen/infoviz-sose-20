@@ -63,6 +63,7 @@
                     parallel
                     base64
                     parallel-io
+                    KdTree
                   ]
                 )
               )
@@ -138,6 +139,7 @@
                     parallel
                     base64
                     parallel-io
+                    KdTree
                   ]
                 )
               )

@@ -69,7 +69,7 @@ compareTimeStamp a b = compare (fst a) (fst b)
 -- | Split when the points are more than 277m apart, the distance a Tram at
 -- 100km/h travels in 10s.
 splitPredicate :: (LocalTime, GeoCoord) -> (LocalTime, GeoCoord) -> Bool
-splitPredicate (_, p1) (_, p2) = distance p1 p2 > 277 -- (100000 / 360)
+splitPredicate (_, p1) (_, p2) = distance (geoToPoint p1) (geoToPoint p2) > 277 -- (100000 / 360)
 
 -- | Example:
 -- splitTrip [(parseTime' "2020-07-09 12:00:05", (13.068, 52.383)), (parseTime' "2020-07-09 12:00:10", (13.053, 52.402))]

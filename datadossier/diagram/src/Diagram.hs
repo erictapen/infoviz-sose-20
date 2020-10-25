@@ -13,6 +13,7 @@ where
 import Data.Maybe
 import Data.Text as TS
 import Data.Time.LocalTime
+import Data.Trees.KdTree
 import Geo
 import Graphics.Svg
 import Hafas
@@ -69,8 +70,8 @@ tripToElement color strokeWidth fx fy (tripId, (t, v) : tripData) = case (fy v) 
     path_
       [ D_
           <<- ( mA (fx t) y
-                  <> (tripToElement' (0.5 * strokeWidth) fx fy ((t,v):tripData))
-                  <> (tripToElement' (-0.5 * strokeWidth) fx fy $ P.reverse ((t,v):tripData))
+                  <> (tripToElement' (0.5 * strokeWidth) fx fy ((t, v) : tripData))
+                  <> (tripToElement' (-0.5 * strokeWidth) fx fy $ P.reverse ((t, v) : tripData))
               ),
         Stroke_ <<- "None",
         Fill_ <<- color,
@@ -94,8 +95,8 @@ placeOnX :: Double -> TimeOfDay -> Double
 placeOnX width t = (seconds t) * (width / (3600 * 24))
 
 -- | Try to place data on the y-axis. Needs a tolerance value and a ReferenceTrack.
-placeOnY :: Double -> Double -> ReferenceTrack -> GeoCoord -> Maybe Double
-placeOnY heightFactor tolerance refTrack coord = fmap (heightFactor *) $ locateCoordOnTrackLength tolerance refTrack coord
+placeOnY :: Double -> Double -> KdTree TrackPoint -> GeoCoord -> Maybe Double
+placeOnY heightFactor tolerance refTrackTree coord = fmap (heightFactor *) $ locateCoordOnTrackLength tolerance refTrackTree coord
 
 -- | Diagram metadata.
 data Diagram = Diagram Text FilePath Double Double Text (Maybe Double) ReferenceTrack [String]
@@ -103,23 +104,25 @@ data Diagram = Diagram Text FilePath Double Double Text (Maybe Double) Reference
 -- | Transforms some metadata and a Line to an SVG ELement.
 diagram :: Diagram -> [Hafas.Line] -> Element
 diagram (Diagram _ _ width heightFactor color strokeWidth refTrack dataFiles) lines =
-  svg width (toText $ heightFactor * trackLength refTrack) $
-    (style_ [] "path { mix-blend-mode: multiply; }")
-      <> ( P.mconcat $
-             P.map
-               ( \(Hafas.Line _ trips) ->
-                   P.mconcat
-                     $ P.map
-                       ( tripToElement
-                           color
-                           (fromMaybe (width / (60 * 24)) strokeWidth)
-                           (placeOnX width . localTimeOfDay)
-                           (placeOnY heightFactor 10 refTrack)
-                       )
-                     $ trips
-               )
-               lines
-         )
+  let refTrackTree :: KdTree TrackPoint
+      refTrackTree = fromReferenceTrack refTrack
+   in svg width (toText $ heightFactor * trackLength refTrack) $
+        (style_ [] "path { mix-blend-mode: multiply; }")
+          <> ( P.mconcat $
+                 P.map
+                   ( \(Hafas.Line _ trips) ->
+                       P.mconcat
+                         $ P.map
+                           ( tripToElement
+                               color
+                               (fromMaybe (width / (60 * 24)) strokeWidth)
+                               (placeOnX width . localTimeOfDay)
+                               (placeOnY heightFactor 10 refTrackTree)
+                           )
+                         $ trips
+                   )
+                   lines
+             )
 
 -- | Effectful and caching version of diagram.
 diagramCached :: Diagram -> IO ()
