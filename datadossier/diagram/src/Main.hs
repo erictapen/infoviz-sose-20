@@ -90,15 +90,15 @@ yLegend width fy ((label, coord) : stations) =
     <> yLegend width fy stations
 
 -- document root
-svg :: Text -> Text -> Element -> Element
+svg :: Double -> Double -> Element -> Element
 svg height width content =
   doctype
     <> Graphics.Svg.with
       (svg11_ content)
       [ Version_ <<- "1.1",
-        Width_ <<- width,
-        Height_ <<- height,
-        ViewBox_ <<- "0 0 " <> width <> " " <> height
+        Width_ <<- (toText width <> "mm"),
+        Height_ <<- (toText height <> "mm"),
+        ViewBox_ <<- "0 0 " <> (toText width) <> " " <> (toText height)
       ]
 
 -- | A graphic is a finished SVG file that can be presented e.g. in the
@@ -108,6 +108,7 @@ graphicWithLegendsCached tram outFile color strokeWidth days =
   let cachePath = "./cache/" <> outFile <> ".svg"
       diagramPath = "./cache/" <> outFile <> "_diagram.svg"
       diagramWidth = 6 * 60 * 24 -- One unit for 10 seconds
+      diagramHeightFactor = 0.02
    in do
         fileExists <- doesFileExist cachePath
         if fileExists
@@ -120,6 +121,7 @@ graphicWithLegendsCached tram outFile color strokeWidth days =
                   (TS.pack tram)
                   diagramPath
                   diagramWidth
+                  diagramHeightFactor
                   color
                   strokeWidth
                   refTrack
@@ -128,7 +130,7 @@ graphicWithLegendsCached tram outFile color strokeWidth days =
             rasterContent <- BS.readFile $ diagramPath <> ".jpeg"
             P.writeFile cachePath
               $ P.show
-              $ svg (toText $ (+) (40 + 40) $ diagramHeight refTrack) (toText $ diagramWidth + 100 + 20 + 20)
+              $ svg (40 + 40 + trackLength refTrack) (diagramWidth + 100 + 20 + 20)
               $ g_
                 [ Transform_ <<- translate 100 20
                 ]
@@ -136,27 +138,28 @@ graphicWithLegendsCached tram outFile color strokeWidth days =
                     [ X_ <<- (toText 0),
                       Y_ <<- (toText 0),
                       Width_ <<- (toText diagramWidth),
-                      Height_ <<- (toText $ diagramHeight refTrack),
+                      Height_ <<- (toText $ trackLength refTrack),
                       XlinkHref_ <<- ("data:image/jpeg;base64," <> encodeBase64 rasterContent)
                     ]
                 )
-                <> (yLegend diagramWidth (placeOnY 100 refTrack) stations)
+                <> (yLegend diagramWidth (placeOnY diagramHeightFactor 100 refTrack) stations)
                 <> (xLegend $ placeOnX diagramWidth)
 
 tramIds :: [Text]
 tramIds =
-  [ "91",
-    "92",
-    "93",
-    "94",
-    "96",
-    "98",
-    "99"
+  [ -- "91",
+    -- "92",
+    -- "93",
+    -- "94",
+    -- "96",
+    "98"
+    -- "99"
   ]
 
 plakat :: IO ()
 plakat =
   let diagramWidth = 800
+      diagramHeightFactor = 0.02
    in do
         referenceTracksAndStations <-
           parallel $
@@ -169,6 +172,7 @@ plakat =
                       tram
                       ("./cache/poster_diagram_" <> (TS.unpack tram) <> ".svg")
                       diagramWidth
+                      diagramHeightFactor
                       "#cccccc"
                       Nothing
                       rt
@@ -177,24 +181,24 @@ plakat =
             )
           $ P.zip tramIds
           $ P.map fst referenceTracksAndStations
-        let heights = P.map diagramHeight $ P.map fst referenceTracksAndStations
+        let heights = P.map trackLength $ P.map fst referenceTracksAndStations
             imagePaths =
               P.zip heights $ P.map (\id -> "all_days_blended_" <> id <> "_diagram.svg.png") tramIds
             diagrams :: Double -> [(Double, Text)] -> Element
             diagrams _ [] = mempty
             diagrams cursorHeight ((height, filePath) : rs) =
               ( image_
-                  [ X_ <<- toText 0,
-                    Y_ <<- toText cursorHeight,
-                    Width_ <<- toText diagramWidth,
-                    Height_ <<- toText height,
+                  [ X_ <<- (toText 0 <> "mm"),
+                    Y_ <<- (toText cursorHeight <> "mm"),
+                    Width_ <<- (toText diagramWidth <> "mm"),
+                    Height_ <<- (toText height <> "mm"),
                     XlinkHref_ <<- filePath
                   ]
               )
                 <> diagrams (cursorHeight + height + (0.25 * 594 / 8)) rs
          in do
               P.writeFile "./cache/plakat.svg" $ P.show
-                $ svg "594" "841"
+                $ svg 594 841
                 $ g_
                   [ Transform_ <<- translate 100 20
                   ]

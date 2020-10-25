@@ -3,8 +3,7 @@
 {-# LANGUAGE RecordWildCards #-}
 
 module Diagram
-  ( diagramHeight,
-    placeOnX,
+  ( placeOnX,
     placeOnY,
     diagramCached,
     Diagram (Diagram),
@@ -22,14 +21,6 @@ import System.Directory
 import System.Process
 import Prelude as P
 
--- | This factor is used to calculate mm height in real y axis from m height in physical track length.
-diagramHeightFactor :: Double
-diagramHeightFactor = 0.02
-
--- | Height of the diagram. It is computed from the length of a ReferenceTrack, as we show absolute values.
-diagramHeight :: ReferenceTrack -> Double
-diagramHeight refTrack = (*) diagramHeightFactor $ fst $ P.last refTrack
-
 -- | Construct a SVG document from a height and the content Element.
 svg :: Double -> Text -> Element -> Element
 svg width height content =
@@ -37,8 +28,8 @@ svg width height content =
     <> Graphics.Svg.with
       (svg11_ content)
       [ Version_ <<- "1.1",
-        Width_ <<- (toText width),
-        Height_ <<- height,
+        Width_ <<- (toText width <> "mm"),
+        Height_ <<- (height <> "mm"),
         ViewBox_ <<- "0 0 " <> (toText width) <> " " <> height
       ]
 
@@ -68,7 +59,7 @@ tripToElement color strokeWidth fx fy (_, (t, v) : []) = case (fy v) of
     circle_
       [ Cx_ <<- (toText $ fx t),
         Cy_ <<- (toText y),
-        R_ <<- (toText $ 0.5 * strokeWidth),
+        R_ <<- ((toText $ 0.5 * strokeWidth) <> "mm"),
         Stroke_ <<- "none",
         Fill_ <<- color
       ]
@@ -79,7 +70,7 @@ tripToElement color strokeWidth fx fy (tripId, (t, v) : tripData) = case (fy v) 
       [ D_ <<- (mA (fx t) y <> (tripToElement' fx fy tripData)),
         Stroke_ <<- color,
         Fill_ <<- "none",
-        Stroke_width_ <<- (toText strokeWidth),
+        Stroke_width_ <<- (toText strokeWidth <> "mm"),
         Stroke_linecap_ <<- "round",
         Id_ <<- ((<>) "trip" $ TS.pack $ P.show tripId)
       ]
@@ -100,16 +91,16 @@ placeOnX :: Double -> TimeOfDay -> Double
 placeOnX width t = (seconds t) * (width / (3600 * 24))
 
 -- | Try to place data on the y-axis. Needs a tolerance value and a ReferenceTrack.
-placeOnY :: Double -> ReferenceTrack -> GeoCoord -> Maybe Double
-placeOnY tolerance refTrack v = fmap (diagramHeightFactor *) $ locateCoordOnTrackLength tolerance refTrack v
+placeOnY :: Double -> Double -> ReferenceTrack -> GeoCoord -> Maybe Double
+placeOnY heightFactor tolerance refTrack coord = fmap (heightFactor *) $ locateCoordOnTrackLength tolerance refTrack coord
 
 -- | Diagram metadata.
-data Diagram = Diagram Text FilePath Double Text (Maybe Double) ReferenceTrack [String]
+data Diagram = Diagram Text FilePath Double Double Text (Maybe Double) ReferenceTrack [String]
 
 -- | Transforms some metadata and a Line to an SVG ELement.
 diagram :: Diagram -> [Hafas.Line] -> Element
-diagram (Diagram _ _ width color strokeWidth refTrack dataFiles) lines =
-  svg width (toText $ diagramHeight refTrack) $
+diagram (Diagram _ _ width heightFactor color strokeWidth refTrack dataFiles) lines =
+  svg width (toText $ heightFactor * trackLength refTrack) $
     (style_ [] "path { mix-blend-mode: multiply; }")
       <> ( P.mconcat $
              P.map
@@ -120,7 +111,7 @@ diagram (Diagram _ _ width color strokeWidth refTrack dataFiles) lines =
                            color
                            (fromMaybe (width / (6 * 60 * 24)) strokeWidth)
                            (placeOnX width . localTimeOfDay)
-                           (placeOnY 10 refTrack)
+                           (placeOnY heightFactor 10 refTrack)
                        )
                      $ trips
                )
@@ -129,7 +120,7 @@ diagram (Diagram _ _ width color strokeWidth refTrack dataFiles) lines =
 
 -- | Effectful and caching version of diagram.
 diagramCached :: Diagram -> IO ()
-diagramCached diagramData@(Diagram tramId outFile _ _ _ _ dataFiles) =
+diagramCached diagramData@(Diagram tramId outFile _ _ _ _ _ dataFiles) =
   do
     fileExists <- doesFileExist outFile
     if fileExists

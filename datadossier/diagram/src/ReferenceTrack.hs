@@ -6,6 +6,7 @@ module ReferenceTrack
   ( ReferenceTrack,
     readReferenceTrackFromFile,
     locateCoordOnTrackLength,
+    trackLength,
   )
 where
 
@@ -31,6 +32,10 @@ data ReferenceTrackJson
   deriving (Generic, Show)
 
 instance FromJSON ReferenceTrackJson
+
+-- | Total length of a track in meters.
+trackLength :: ReferenceTrack -> Meter
+trackLength = P.fst . P.last
 
 -- | Openstreetmap doesn't have complete data about Potsdam train tracks and I'm too dumb to use their editor. So we manually add sone stuff here.
 completeReferenceTrack :: ReferenceTrackJson -> ReferenceTrackJson
