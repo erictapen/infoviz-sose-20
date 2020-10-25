@@ -19,6 +19,7 @@ import Graphics.Svg
 import Hafas
 import ReferenceTrack
 import System.Directory
+import System.Process
 import Prelude as P
 
 -- | This factor is used to calculate mm height in real y axis from m height in physical track length.
@@ -137,3 +138,5 @@ diagramCached diagramData@(Diagram tramId outFile _ _ _ _ dataFiles) =
         P.putStrLn $ "Cache miss: " <> outFile
         lines <- getAllVehiclesCached dataFiles $ filterTram tramId
         P.writeFile outFile $ P.show $ diagram diagramData lines
+        readProcess "./raster.sh" [outFile] ""
+        mempty

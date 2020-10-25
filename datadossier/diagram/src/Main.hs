@@ -16,7 +16,6 @@ import Geo
 import Graphics.Svg
 import ReferenceTrack
 import System.Directory
-import System.Process
 import Prelude as P
 
 formatTime :: TimeOfDay -> Text
@@ -126,7 +125,6 @@ graphicWithLegendsCached tram outFile color strokeWidth days =
                   refTrack
                   days
               )
-            readProcess "./raster.sh" [diagramPath] ""
             rasterContent <- BS.readFile $ diagramPath <> ".jpeg"
             P.writeFile cachePath
               $ P.show
