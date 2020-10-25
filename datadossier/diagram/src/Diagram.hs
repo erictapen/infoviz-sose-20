@@ -90,9 +90,18 @@ tripToElement' offset fx fy ((t, v) : ds) = case (fy v) of
   Just y -> lA (offset + fx t) y <> tripToElement' offset fx fy ds
   Nothing -> tripToElement' offset fx fy ds
 
--- | Place an x value (which is a time stamp) on the x-axis. 10 seconds amount to one pixel.
+-- | Place an x value (which is a time stamp) on the x-axis. Width is the
+-- overall width of the diagram in millimeters. The time is "warped" that means
+-- that the day starts at 3:00 AM and ends at 3:00AM. This way we won't have
+-- any cuts in tram schedules.
 placeOnX :: Double -> TimeOfDay -> Double
-placeOnX width t = (seconds t) * (width / (3600 * 24))
+placeOnX width t =
+  let sec = (seconds t)
+      warpedSeconds =
+        if sec < (3600 * 3)
+          then sec + (3600 * 21)
+          else sec - (3600 * 3)
+   in warpedSeconds * (width / (3600 * 24))
 
 -- | Try to place data on the y-axis. Needs a tolerance value and a ReferenceTrack.
 placeOnY :: Double -> Double -> KdTree TrackPoint -> GeoCoord -> Maybe Double
