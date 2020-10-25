@@ -147,62 +147,68 @@ graphicWithLegendsCached tram outFile color strokeWidth days =
 
 tramIds :: [Text]
 tramIds =
-  [ -- "91",
-    -- "92",
-    -- "93",
-    -- "94",
-    -- "96",
-    "98"
-    -- "99"
+  [ "91",
+    "92",
+    "93",
+    "94",
+    "96",
+    "98",
+    "99"
   ]
 
 plakat :: IO ()
 plakat =
-  let diagramWidth = 800
-      diagramHeightFactor = 0.02
+  let diagramWidth = 600
    in do
         referenceTracksAndStations <-
           parallel $
-            P.map (\id -> readReferenceTrackFromFile $ (TS.unpack id) <> ".json") tramIds
-        parallel_
-          $ P.map
-            ( \(tram, rt) ->
-                diagramCached
-                  ( Diagram
-                      tram
-                      ("./cache/poster_diagram_" <> (TS.unpack tram) <> ".svg")
-                      diagramWidth
-                      diagramHeightFactor
-                      "#cccccc"
-                      Nothing
-                      rt
-                      allDays
-                  )
-            )
-          $ P.zip tramIds
-          $ P.map fst referenceTracksAndStations
-        let heights = P.map trackLength $ P.map fst referenceTracksAndStations
+            P.map (\id -> fmap fst $ readReferenceTrackFromFile $ (TS.unpack id) <> ".json") tramIds
+        let trackLengths = P.map trackLength referenceTracksAndStations
+            totalTrackLength = sum trackLengths
+            diagramHeightFactor = (0.75 * 500) / totalTrackLength
+            gapSize = (0.25 * 500) / (fromIntegral $ P.length trackLengths - 1)
             imagePaths =
-              P.zip heights $ P.map (\id -> "all_days_blended_" <> id <> "_diagram.svg.png") tramIds
-            diagrams :: Double -> [(Double, Text)] -> Element
-            diagrams _ [] = mempty
-            diagrams cursorHeight ((height, filePath) : rs) =
+              P.zip
+                (P.map (diagramHeightFactor *) trackLengths)
+                $ P.map (\id -> "poster_diagram_" <> id <> ".svg.png") tramIds
+            diagrams :: Double -> Double -> [(Double, Text)] -> Element
+            diagrams _ _ [] = mempty
+            diagrams gap cursorY ((height, filePath) : rs) =
               ( image_
-                  [ X_ <<- (toText 0 <> "mm"),
-                    Y_ <<- (toText cursorHeight <> "mm"),
-                    Width_ <<- (toText diagramWidth <> "mm"),
-                    Height_ <<- (toText height <> "mm"),
+                  [ X_ <<- (toText 0),
+                    Y_ <<- (toText cursorY),
+                    Width_ <<- (toText diagramWidth),
+                    Height_ <<- (toText height),
                     XlinkHref_ <<- filePath
                   ]
               )
-                <> diagrams (cursorHeight + height + (0.25 * 594 / 8)) rs
+                <> diagrams gap (cursorY + height + gap) rs
          in do
-              P.writeFile "./cache/plakat.svg" $ P.show
+              parallel_
+                $ P.map
+                  ( \(tram, rt) ->
+                      diagramCached
+                        ( Diagram
+                            tram
+                            ("./cache/poster_diagram_" <> (TS.unpack tram) <> ".svg")
+                            diagramWidth
+                            diagramHeightFactor
+                            "#cccccc"
+                            Nothing
+                            rt
+                            allDays
+                        )
+                  )
+                $ P.zip tramIds
+                $ referenceTracksAndStations
+              P.writeFile
+                "./cache/plakat.svg"
+                $ P.show
                 $ svg 594 841
                 $ g_
                   [ Transform_ <<- translate 100 20
                   ]
-                $ diagrams 0 imagePaths
+                $ diagrams gapSize 0 imagePaths
 
 allDays :: [String]
 allDays =
