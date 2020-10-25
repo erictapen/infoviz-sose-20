@@ -59,7 +59,7 @@ tripToElement color strokeWidth fx fy (_, (t, v) : []) = case (fy v) of
     circle_
       [ Cx_ <<- (toText $ fx t),
         Cy_ <<- (toText y),
-        R_ <<- ((toText $ 0.5 * strokeWidth) <> "mm"),
+        R_ <<- (toText $ 0.5 * strokeWidth),
         Stroke_ <<- "none",
         Fill_ <<- color
       ]
@@ -67,24 +67,27 @@ tripToElement color strokeWidth fx fy (tripId, (t, v) : tripData) = case (fy v) 
   Nothing -> tripToElement color strokeWidth fx fy (tripId, tripData)
   Just y ->
     path_
-      [ D_ <<- (mA (fx t) y <> (tripToElement' fx fy tripData)),
-        Stroke_ <<- color,
-        Fill_ <<- "none",
-        Stroke_width_ <<- (toText strokeWidth <> "mm"),
-        Stroke_linecap_ <<- "round",
+      [ D_
+          <<- ( mA (fx t) y
+                  <> (tripToElement' (0.5 * strokeWidth) fx fy ((t,v):tripData))
+                  <> (tripToElement' (-0.5 * strokeWidth) fx fy $ P.reverse ((t,v):tripData))
+              ),
+        Stroke_ <<- "None",
+        Fill_ <<- color,
         Id_ <<- ((<>) "trip" $ TS.pack $ P.show tripId)
       ]
 
 -- | Recursively generate the tail of the path elements.
 tripToElement' ::
+  Double ->
   (LocalTime -> Double) ->
   (GeoCoord -> Maybe Double) ->
   [(LocalTime, GeoCoord)] ->
   Text
-tripToElement' _ _ [] = ""
-tripToElement' fx fy ((t, v) : ds) = case (fy v) of
-  Just y -> lA (fx t) y <> tripToElement' fx fy ds
-  Nothing -> tripToElement' fx fy ds
+tripToElement' _ _ _ [] = ""
+tripToElement' offset fx fy ((t, v) : ds) = case (fy v) of
+  Just y -> lA (offset + fx t) y <> tripToElement' offset fx fy ds
+  Nothing -> tripToElement' offset fx fy ds
 
 -- | Place an x value (which is a time stamp) on the x-axis. 10 seconds amount to one pixel.
 placeOnX :: Double -> TimeOfDay -> Double
@@ -109,7 +112,7 @@ diagram (Diagram _ _ width heightFactor color strokeWidth refTrack dataFiles) li
                      $ P.map
                        ( tripToElement
                            color
-                           (fromMaybe (width / (6 * 60 * 24)) strokeWidth)
+                           (fromMaybe (width / (60 * 24)) strokeWidth)
                            (placeOnX width . localTimeOfDay)
                            (placeOnY heightFactor 10 refTrack)
                        )
