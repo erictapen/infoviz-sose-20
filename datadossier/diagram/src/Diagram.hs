@@ -3,8 +3,7 @@
 {-# LANGUAGE RecordWildCards #-}
 
 module Diagram
-  ( diagramWidth,
-    diagramHeight,
+  ( diagramHeight,
     placeOnX,
     placeOnY,
     diagramCached,
@@ -22,10 +21,6 @@ import ReferenceTrack
 import System.Directory
 import Prelude as P
 
--- | One pixel resolution for ten seconds, as we took samples this frequent.
-diagramWidth :: Double
-diagramWidth = 6 * 60 * 24
-
 -- | This factor is used to calculate mm height in real y axis from m height in physical track length.
 diagramHeightFactor :: Double
 diagramHeightFactor = 0.02
@@ -35,15 +30,15 @@ diagramHeight :: ReferenceTrack -> Double
 diagramHeight refTrack = (*) diagramHeightFactor $ fst $ P.last refTrack
 
 -- | Construct a SVG document from a height and the content Element.
-svg :: Text -> Element -> Element
-svg height content =
+svg :: Double -> Text -> Element -> Element
+svg width height content =
   doctype
     <> Graphics.Svg.with
       (svg11_ content)
       [ Version_ <<- "1.1",
-        Width_ <<- (toText diagramWidth),
+        Width_ <<- (toText width),
         Height_ <<- height,
-        ViewBox_ <<- "0 0 " <> (toText diagramWidth) <> " " <> height
+        ViewBox_ <<- "0 0 " <> (toText width) <> " " <> height
       ]
 
 -- | Seconds from midnight on a TimeOfDay
@@ -100,20 +95,20 @@ tripToElement' fx fy ((t, v) : ds) = case (fy v) of
   Nothing -> tripToElement' fx fy ds
 
 -- | Place an x value (which is a time stamp) on the x-axis. 10 seconds amount to one pixel.
-placeOnX :: TimeOfDay -> Double
-placeOnX t = (*) 0.1 $ seconds t
+placeOnX :: Double -> TimeOfDay -> Double
+placeOnX width t = (seconds t) * (width / (3600 * 24))
 
 -- | Try to place data on the y-axis. Needs a tolerance value and a ReferenceTrack.
 placeOnY :: Double -> ReferenceTrack -> GeoCoord -> Maybe Double
 placeOnY tolerance refTrack v = fmap (diagramHeightFactor *) $ locateCoordOnTrackLength tolerance refTrack v
 
 -- | Diagram metadata.
-data Diagram = Diagram Text FilePath Text Double ReferenceTrack [String]
+data Diagram = Diagram Text FilePath Double Text (Maybe Double) ReferenceTrack [String]
 
 -- | Transforms some metadata and a Line to an SVG ELement.
 diagram :: Diagram -> [Hafas.Line] -> Element
-diagram (Diagram _ _ color strokeWidth refTrack dataFiles) lines =
-  svg (toText $ diagramHeight refTrack) $
+diagram (Diagram _ _ width color strokeWidth refTrack dataFiles) lines =
+  svg width (toText $ diagramHeight refTrack) $
     (style_ [] "path { mix-blend-mode: multiply; }")
       <> ( P.mconcat $
              P.map
@@ -122,8 +117,8 @@ diagram (Diagram _ _ color strokeWidth refTrack dataFiles) lines =
                      $ P.map
                        ( tripToElement
                            color
-                           strokeWidth
-                           (placeOnX . localTimeOfDay)
+                           (fromMaybe (width / (6 * 60 * 24)) strokeWidth)
+                           (placeOnX width . localTimeOfDay)
                            (placeOnY 10 refTrack)
                        )
                      $ trips
@@ -133,13 +128,12 @@ diagram (Diagram _ _ color strokeWidth refTrack dataFiles) lines =
 
 -- | Effectful and caching version of diagram.
 diagramCached :: Diagram -> IO ()
-diagramCached diagramData@(Diagram tramId outFile _ _ _ dataFiles) =
-  let cachePath = outFile
-   in do
-        fileExists <- doesFileExist cachePath
-        if fileExists
-          then P.putStrLn $ "Cache hit:  " <> cachePath
-          else do
-            P.putStrLn $ "Cache miss: " <> cachePath
-            lines <- getAllVehiclesCached dataFiles $ filterTram tramId
-            P.writeFile cachePath $ P.show $ diagram diagramData lines
+diagramCached diagramData@(Diagram tramId outFile _ _ _ _ dataFiles) =
+  do
+    fileExists <- doesFileExist outFile
+    if fileExists
+      then P.putStrLn $ "Cache hit:  " <> outFile
+      else do
+        P.putStrLn $ "Cache miss: " <> outFile
+        lines <- getAllVehiclesCached dataFiles $ filterTram tramId
+        P.writeFile outFile $ P.show $ diagram diagramData lines

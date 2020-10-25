@@ -62,6 +62,7 @@
                     svg-builder
                     parallel
                     base64
+                    parallel-io
                   ]
                 )
               )
@@ -136,6 +137,7 @@
                     svg-builder
                     parallel
                     base64
+                    parallel-io
                   ]
                 )
               )

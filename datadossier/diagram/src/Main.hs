@@ -4,6 +4,7 @@
 
 module Main where
 
+import Control.Concurrent.ParallelIO.Global
 import Data.ByteString as BS
 import Data.ByteString.Base64
 import Data.Maybe
@@ -55,9 +56,9 @@ xLegend fx =
       )
       [(TimeOfDay h m 0) | h <- [0 .. 23], m <- [0, 10 .. 50]]
 
-yLegend :: (GeoCoord -> Maybe Double) -> [(Text, GeoCoord)] -> Element
-yLegend _ [] = mempty
-yLegend fy ((label, coord) : stations) =
+yLegend :: Double -> (GeoCoord -> Maybe Double) -> [(Text, GeoCoord)] -> Element
+yLegend _ _ [] = mempty
+yLegend width fy ((label, coord) : stations) =
   ( case (fy coord) of
       Nothing ->
         error $
@@ -80,14 +81,14 @@ yLegend fy ((label, coord) : stations) =
             <> line_
               [ X1_ <<- (toText 0),
                 Y1_ <<- (toText yPos),
-                X2_ <<- (toText (diagramWidth)),
+                X2_ <<- (toText width),
                 Y2_ <<- (toText yPos),
                 Stroke_ <<- "#C0C0C0",
                 Stroke_width_ <<- "0.5"
               ]
         )
   )
-    <> yLegend fy stations
+    <> yLegend width fy stations
 
 -- document root
 svg :: Text -> Text -> Element -> Element
@@ -103,10 +104,11 @@ svg height width content =
 
 -- | A graphic is a finished SVG file that can be presented e.g. in the
 -- datadossier. It consists of a diagram and legends of x- and y-axis.
-graphicWithLegendsCached :: String -> FilePath -> Text -> Double -> [String] -> IO ()
+graphicWithLegendsCached :: String -> FilePath -> Text -> (Maybe Double) -> [String] -> IO ()
 graphicWithLegendsCached tram outFile color strokeWidth days =
   let cachePath = "./cache/" <> outFile <> ".svg"
       diagramPath = "./cache/" <> outFile <> "_diagram.svg"
+      diagramWidth = 6 * 60 * 24 -- One unit for 10 seconds
    in do
         fileExists <- doesFileExist cachePath
         if fileExists
@@ -118,6 +120,7 @@ graphicWithLegendsCached tram outFile color strokeWidth days =
               ( Diagram
                   (TS.pack tram)
                   diagramPath
+                  diagramWidth
                   color
                   strokeWidth
                   refTrack
@@ -139,49 +142,65 @@ graphicWithLegendsCached tram outFile color strokeWidth days =
                       XlinkHref_ <<- ("data:image/jpeg;base64," <> encodeBase64 rasterContent)
                     ]
                 )
-                <> (yLegend (placeOnY 100 refTrack) stations)
-                <> (xLegend placeOnX)
+                <> (yLegend diagramWidth (placeOnY 100 refTrack) stations)
+                <> (xLegend $ placeOnX diagramWidth)
+
+tramIds :: [Text]
+tramIds =
+  [ "91",
+    "92",
+    "93",
+    "94",
+    "96",
+    "98",
+    "99"
+  ]
 
 plakat :: IO ()
-plakat = do
-  (rt91, _) <- readReferenceTrackFromFile "91.json"
-  (rt92, _) <- readReferenceTrackFromFile "92.json"
-  (rt93, _) <- readReferenceTrackFromFile "93.json"
-  (rt94, _) <- readReferenceTrackFromFile "94.json"
-  (rt96, _) <- readReferenceTrackFromFile "96.json"
-  (rt98, _) <- readReferenceTrackFromFile "98.json"
-  (rt99, _) <- readReferenceTrackFromFile "99.json"
-  let heights = P.map diagramHeight [rt91, rt92, rt93, rt94, rt96, rt98, rt99]
-      imagePaths =
-        P.zip heights $
-          [ "all_days_blended_91_diagram.svg.png",
-            "all_days_blended_92_diagram.svg.png",
-            "all_days_blended_93_diagram.svg.png",
-            "all_days_blended_94_diagram.svg.png",
-            "all_days_blended_96_diagram.svg.png",
-            "all_days_blended_98_diagram.svg.png",
-            "all_days_blended_99_diagram.svg.png"
-          ]
-      diagrams :: Double -> [(Double, Text)] -> Element
-      diagrams _ [] = mempty
-      diagrams cursorHeight ((height, filePath) : rs) =
-        ( image_
-            [ X_ <<- toText 0,
-              Y_ <<- toText cursorHeight,
-              Width_ <<- toText diagramWidth,
-              Height_ <<- toText height,
-              XlinkHref_ <<- filePath
-            ]
-        )
-          <> diagrams (cursorHeight + height + (0.25 * 594 / 8)) rs
+plakat =
+  let diagramWidth = 800
    in do
-        P.print $ P.show heights
-        P.writeFile "./cache/plakat.svg" $ P.show
-          $ svg "594" "841"
-          $ g_
-            [ Transform_ <<- translate 100 20
-            ]
-          $ diagrams 0 imagePaths
+        referenceTracksAndStations <-
+          parallel $
+            P.map (\id -> readReferenceTrackFromFile $ (TS.unpack id) <> ".json") tramIds
+        parallel_
+          $ P.map
+            ( \(tram, rt) ->
+                diagramCached
+                  ( Diagram
+                      tram
+                      ("./cache/poster_diagram_" <> (TS.unpack tram) <> ".svg")
+                      diagramWidth
+                      "#cccccc"
+                      Nothing
+                      rt
+                      allDays
+                  )
+            )
+          $ P.zip tramIds
+          $ P.map fst referenceTracksAndStations
+        let heights = P.map diagramHeight $ P.map fst referenceTracksAndStations
+            imagePaths =
+              P.zip heights $ P.map (\id -> "all_days_blended_" <> id <> "_diagram.svg.png") tramIds
+            diagrams :: Double -> [(Double, Text)] -> Element
+            diagrams _ [] = mempty
+            diagrams cursorHeight ((height, filePath) : rs) =
+              ( image_
+                  [ X_ <<- toText 0,
+                    Y_ <<- toText cursorHeight,
+                    Width_ <<- toText diagramWidth,
+                    Height_ <<- toText height,
+                    XlinkHref_ <<- filePath
+                  ]
+              )
+                <> diagrams (cursorHeight + height + (0.25 * 594 / 8)) rs
+         in do
+              P.writeFile "./cache/plakat.svg" $ P.show
+                $ svg "594" "841"
+                $ g_
+                  [ Transform_ <<- translate 100 20
+                  ]
+                $ diagrams 0 imagePaths
 
 allDays :: [String]
 allDays =
@@ -212,13 +231,13 @@ allDays =
 main :: IO ()
 main = do
   setLocaleEncoding utf8
-  graphicWithLegendsCached "96" "2020-07-06_96" "black" 1 ["2020-07-06"]
-  graphicWithLegendsCached "96" "all_days_96" "black" 1 allDays
-  graphicWithLegendsCached "91" "all_days_blended_91" "#cccccc" 4 allDays
-  graphicWithLegendsCached "92" "all_days_blended_92" "#cccccc" 4 allDays
-  graphicWithLegendsCached "93" "all_days_blended_93" "#cccccc" 4 allDays
-  graphicWithLegendsCached "94" "all_days_blended_94" "#cccccc" 4 allDays
-  graphicWithLegendsCached "96" "all_days_blended_96" "#cccccc" 4 allDays
-  graphicWithLegendsCached "98" "all_days_blended_98" "#cccccc" 4 allDays
-  graphicWithLegendsCached "99" "all_days_blended_99" "#cccccc" 4 allDays
+  graphicWithLegendsCached "96" "2020-07-06_96" "black" (Just 1) ["2020-07-06"]
+  graphicWithLegendsCached "96" "all_days_96" "black" (Just 1) allDays
+  graphicWithLegendsCached "91" "all_days_blended_91" "#cccccc" Nothing allDays
+  graphicWithLegendsCached "92" "all_days_blended_92" "#cccccc" Nothing allDays
+  graphicWithLegendsCached "93" "all_days_blended_93" "#cccccc" Nothing allDays
+  graphicWithLegendsCached "94" "all_days_blended_94" "#cccccc" Nothing allDays
+  graphicWithLegendsCached "96" "all_days_blended_96" "#cccccc" Nothing allDays
+  graphicWithLegendsCached "98" "all_days_blended_98" "#cccccc" Nothing allDays
+  graphicWithLegendsCached "99" "all_days_blended_99" "#cccccc" Nothing allDays
   plakat
