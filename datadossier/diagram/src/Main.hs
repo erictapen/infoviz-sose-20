@@ -28,14 +28,14 @@ formatTime t =
              _ -> (P.show (todMin t))
          )
 
-xLegend :: (TimeOfDay -> Double) -> Element
-xLegend fx =
+xLegend :: Double -> (TimeOfDay -> Double) -> [TimeOfDay] -> Element
+xLegend height fx times =
   P.mconcat $
     P.map
       ( \t ->
           ( text_
               [ X_ <<- (toText (fx t)),
-                Y_ <<- (toText (-5)),
+                Y_ <<- (toText (height - 5)),
                 Font_family_ <<- "Fira Sans",
                 Text_anchor_ <<- "middle",
                 Style_ <<- "text-align: center;",
@@ -47,13 +47,13 @@ xLegend fx =
             <> line_
               [ X1_ <<- (toText (fx t)),
                 X2_ <<- (toText (fx t)),
-                Y1_ <<- (toText (-3)),
-                Y2_ <<- (toText (-1)),
+                Y1_ <<- (toText (height -3)),
+                Y2_ <<- (toText (height -1)),
                 Stroke_ <<- "black",
                 Stroke_width_ <<- "1"
               ]
       )
-      [(TimeOfDay h m 0) | h <- [0 .. 23], m <- [0, 10 .. 50]]
+      times
 
 yLegend :: Double -> (GeoCoord -> Maybe Double) -> [(Text, GeoCoord)] -> Element
 yLegend _ _ [] = mempty
@@ -143,7 +143,11 @@ graphicWithLegendsCached tram outFile color strokeWidth days =
                     ]
                 )
                 <> (yLegend diagramWidth (placeOnY diagramHeightFactor 100 $ fromReferenceTrack refTrack) stations)
-                <> (xLegend $ placeOnX diagramWidth)
+                <> ( xLegend
+                       0
+                       (placeOnX diagramWidth)
+                       [(TimeOfDay h m 0) | h <- [0 .. 23], m <- [0, 10 .. 50]]
+                   )
 
 tramIds :: [Text]
 tramIds =
@@ -182,6 +186,11 @@ plakat =
                     XlinkHref_ <<- filePath
                   ]
               )
+                <> ( xLegend
+                       cursorY
+                       (placeOnX diagramWidth)
+                       [(TimeOfDay h m 0) | h <- [0 .. 23], m <- [0]]
+                   )
                 <> diagrams gap (cursorY + height + gap) rs
          in do
               parallel_
