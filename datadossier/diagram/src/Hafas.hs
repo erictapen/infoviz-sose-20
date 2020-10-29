@@ -11,6 +11,7 @@ module Hafas
 where
 
 import Codec.Compression.GZip as GZ
+import Control.Concurrent.ParallelIO.Global
 import Data.Aeson as Aeson
 import Data.ByteString.Lazy as BL
 import qualified Data.Geospatial as Geospatial
@@ -32,6 +33,32 @@ import Prelude as P
 data Line = Line Text [(TripId, [(LocalTime, GeoCoord)])]
 
 type TripId = Int
+
+allDays :: [String]
+allDays =
+  [ -- We don't use 2020-06-17, as it is incomplete
+    "2020-06-18",
+    "2020-06-19",
+    "2020-06-22",
+    "2020-06-23",
+    "2020-06-24",
+    "2020-06-25",
+    "2020-06-26",
+    "2020-06-29",
+    "2020-06-30",
+    "2020-07-01",
+    "2020-07-02",
+    "2020-07-03",
+    "2020-07-06",
+    "2020-07-07",
+    "2020-07-08",
+    "2020-07-09",
+    "2020-07-10",
+    "2020-07-13",
+    "2020-07-14",
+    "2020-07-15",
+    "2020-07-16"
+  ]
 
 -- | Show a line as an CSV table, just a helper function I'll not use often.
 printCSV :: Line -> String
@@ -181,20 +208,18 @@ getVehicles path =
 -- | Read a list of .json.gz files in, decode them and filter them using Filter
 -- functions.
 getAllVehicles :: FilePath -> [FilePath] -> Filter -> IO [(LocalTime, Vehicle)]
-getAllVehicles _ [] _ = return []
-getAllVehicles basePath (f : fs) (Filter filterName vehicleFilter) = do
-  vehicles <- getVehicles $ basePath <> f
-  nextVehicles <- getAllVehicles basePath fs $ Filter filterName vehicleFilter
-  return $ (P.filter vehicleFilter vehicles) ++ nextVehicles
+getAllVehicles basePath files (Filter filterName vehicleFilter) = do
+  vehicles <- parallel $ P.map (\f -> getVehicles $ basePath <> f) files
+  return $ (P.filter vehicleFilter $ mconcat vehicles)
 
 -- | This is a proxy for getAllVehicles, but uses a cached JSON file in
 -- ./cache/ that is named after the used Filter.
-getAllVehiclesCached :: [String] -> Filter -> IO [Line]
-getAllVehiclesCached [] _ = return []
-getAllVehiclesCached (day : days) (Filter filterName vehicleFilter) =
-  let cacheName = "./cache/" <> (TS.pack day) <> "-" <> filterName <> ".json"
+getAllVehiclesCached :: (Maybe String) -> Filter -> IO Line
+getAllVehiclesCached day filter@(Filter filterName vehicleFilter) =
+  let cacheName = case day of
+        Just d -> "./cache/" <> (TS.pack d) <> "-" <> filterName <> ".json"
+        Nothing -> "./cache/all_days-" <> filterName <> ".json"
       cachePath = TS.unpack cacheName
-      basePath = "./raw/" <> day <> "/"
       -- Stupid conversion functions I needed to write in order to make JSON
       -- serialization possible.
       fromCache :: [(TripId, [(LocalTime, GeoCoord)])] -> Line
@@ -203,22 +228,28 @@ getAllVehiclesCached (day : days) (Filter filterName vehicleFilter) =
       toCache (Line _ ds) = ds
    in do
         fileExists <- doesFileExist cachePath
-        nextLine <- getAllVehiclesCached days (Filter filterName vehicleFilter)
         if fileExists
           then do
-            TSIO.putStrLn $ "Cache hit:  " <> cacheName
+            TSIO.putStrLn $ "Cache hit: " <> cacheName
             cacheContent <- BL.readFile cachePath
             case (Aeson.eitherDecode cacheContent) of
               (Right res) -> do
-                return $ (fromCache $ res) : nextLine
+                return $ fromCache res
               (Left err) -> do
                 System.IO.hPutStrLn stderr $ "Can't read from cache " <> cachePath <> ": " <> err
-                return []
+                return $ Line "" []
           else do
             TSIO.putStrLn $ "Cache miss: " <> cacheName
-            fileList <- listDirectory basePath
-            rawRes <- getAllVehicles basePath fileList (Filter filterName vehicleFilter)
-            let res = transformVehicles rawRes
+            rawRes <- parallel
+              $ P.map
+                ( \d -> do
+                    fileList <- listDirectory $ "./raw/" <> d <> "/"
+                    getAllVehicles ("./raw/" <> d <> "/") fileList filter
+                )
+              $ case day of
+                Just d -> [d]
+                Nothing -> allDays
+            let res = transformVehicles $ mconcat rawRes
              in do
                   BL.writeFile cachePath $ Aeson.encode $ toCache res
-                  return $ res : nextLine
+                  return res

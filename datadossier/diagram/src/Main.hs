@@ -103,11 +103,11 @@ svg height width content =
 
 -- | A graphic is a finished SVG file that can be presented e.g. in the
 -- datadossier. It consists of a diagram and legends of x- and y-axis.
-graphicWithLegendsCached :: String -> FilePath -> Text -> (Maybe Double) -> [String] -> IO ()
-graphicWithLegendsCached tram outFile color strokeWidth days =
+graphicWithLegendsCached :: String -> FilePath -> Text -> (Maybe Double) -> Maybe String -> IO ()
+graphicWithLegendsCached tram outFile color strokeWidth day =
   let cachePath = "./cache/" <> outFile <> ".svg"
       diagramPath = "./cache/" <> outFile <> "_diagram.svg"
-      diagramWidth = 6 * 6 * 24 -- One unit for 10 seconds
+      diagramWidth = 6 * 6 * 24 -- One unit for 100 seconds
       diagramHeightFactor = 0.002
    in do
         fileExists <- doesFileExist cachePath
@@ -125,7 +125,7 @@ graphicWithLegendsCached tram outFile color strokeWidth days =
                   color
                   strokeWidth
                   refTrack
-                  days
+                  day
               )
             rasterContent <- BS.readFile $ diagramPath <> ".jpeg"
             P.writeFile cachePath
@@ -205,7 +205,7 @@ plakat =
                             "#cccccc"
                             Nothing
                             rt
-                            allDays
+                            Nothing
                         )
                   )
                 $ P.zip tramIds
@@ -219,42 +219,16 @@ plakat =
                   ]
                 $ diagrams gapSize 0 imagePaths
 
-allDays :: [String]
-allDays =
-  [ -- We don't use 2020-06-17, as it is incomplete
-    "2020-06-18",
-    "2020-06-19",
-    "2020-06-22",
-    "2020-06-23",
-    "2020-06-24",
-    "2020-06-25",
-    "2020-06-26",
-    "2020-06-29",
-    "2020-06-30",
-    "2020-07-01",
-    "2020-07-02",
-    "2020-07-03",
-    "2020-07-06",
-    "2020-07-07",
-    "2020-07-08",
-    "2020-07-09",
-    "2020-07-10",
-    "2020-07-13",
-    "2020-07-14",
-    "2020-07-15",
-    "2020-07-16"
-  ]
-
 main :: IO ()
 main = do
   setLocaleEncoding utf8
-  graphicWithLegendsCached "96" "2020-07-06_96" "black" (Just 1) ["2020-07-06"]
-  graphicWithLegendsCached "96" "all_days_96" "black" (Just 1) allDays
-  graphicWithLegendsCached "91" "all_days_blended_91" "#cccccc" Nothing allDays
-  graphicWithLegendsCached "92" "all_days_blended_92" "#cccccc" Nothing allDays
-  graphicWithLegendsCached "93" "all_days_blended_93" "#cccccc" Nothing allDays
-  graphicWithLegendsCached "94" "all_days_blended_94" "#cccccc" Nothing allDays
-  graphicWithLegendsCached "96" "all_days_blended_96" "#cccccc" Nothing allDays
-  graphicWithLegendsCached "98" "all_days_blended_98" "#cccccc" Nothing allDays
-  graphicWithLegendsCached "99" "all_days_blended_99" "#cccccc" Nothing allDays
+  graphicWithLegendsCached "96" "2020-07-06_96" "black" (Just 1) (Just "2020-07-06")
+  graphicWithLegendsCached "96" "all_days_96" "black" (Just 1) Nothing
+  graphicWithLegendsCached "91" "all_days_blended_91" "#cccccc" Nothing Nothing
+  graphicWithLegendsCached "92" "all_days_blended_92" "#cccccc" Nothing Nothing
+  graphicWithLegendsCached "93" "all_days_blended_93" "#cccccc" Nothing Nothing
+  graphicWithLegendsCached "94" "all_days_blended_94" "#cccccc" Nothing Nothing
+  graphicWithLegendsCached "96" "all_days_blended_96" "#cccccc" Nothing Nothing
+  graphicWithLegendsCached "98" "all_days_blended_98" "#cccccc" Nothing Nothing
+  graphicWithLegendsCached "99" "all_days_blended_99" "#cccccc" Nothing Nothing
   plakat

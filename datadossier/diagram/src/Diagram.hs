@@ -108,41 +108,45 @@ placeOnY :: Double -> Double -> KdTree TrackPoint -> GeoCoord -> Maybe Double
 placeOnY heightFactor tolerance refTrackTree coord = fmap (heightFactor *) $ locateCoordOnTrackLength tolerance refTrackTree coord
 
 -- | Diagram metadata.
-data Diagram = Diagram Text FilePath Double Double Text (Maybe Double) ReferenceTrack [String]
+data Diagram
+  = Diagram
+      Text
+      FilePath
+      Double
+      Double
+      Text
+      (Maybe Double)
+      ReferenceTrack
+      (Maybe String)
 
 -- | Transforms some metadata and a Line to an SVG ELement.
-diagram :: Diagram -> [Hafas.Line] -> Element
-diagram (Diagram _ _ width heightFactor color strokeWidth refTrack dataFiles) lines =
+diagram :: Diagram -> Hafas.Line -> Element
+diagram (Diagram _ _ width heightFactor color strokeWidth refTrack _) (Hafas.Line _ trips) =
   let refTrackTree :: KdTree TrackPoint
       refTrackTree = fromReferenceTrack refTrack
    in svg width (toText $ heightFactor * trackLength refTrack) $
         (style_ [] "path { mix-blend-mode: multiply; }")
-          <> ( P.mconcat $
-                 P.map
-                   ( \(Hafas.Line _ trips) ->
-                       P.mconcat
-                         $ P.map
-                           ( tripToElement
-                               color
-                               (fromMaybe (width / (60 * 24)) strokeWidth)
-                               (placeOnX width . localTimeOfDay)
-                               (placeOnY heightFactor 10 refTrackTree)
-                           )
-                         $ trips
+          <> ( P.mconcat
+                 $ P.map
+                   ( tripToElement
+                       color
+                       (fromMaybe (width / (60 * 24)) strokeWidth)
+                       (placeOnX width . localTimeOfDay)
+                       (placeOnY heightFactor 10 refTrackTree)
                    )
-                   lines
+                 $ trips
              )
 
 -- | Effectful and caching version of diagram.
 diagramCached :: Diagram -> IO ()
-diagramCached diagramData@(Diagram tramId outFile _ _ _ _ _ dataFiles) =
+diagramCached diagramData@(Diagram tramId outFile _ _ _ _ _ days) =
   do
     fileExists <- doesFileExist outFile
     if fileExists
       then P.putStrLn $ "Cache hit:  " <> outFile
       else do
         P.putStrLn $ "Cache miss: " <> outFile
-        lines <- getAllVehiclesCached dataFiles $ filterTram tramId
-        P.writeFile outFile $ P.show $ diagram diagramData lines
+        line <- getAllVehiclesCached days $ filterTram tramId
+        P.writeFile outFile $ P.show $ diagram diagramData line
         readProcess "./raster.sh" [outFile] ""
         mempty
