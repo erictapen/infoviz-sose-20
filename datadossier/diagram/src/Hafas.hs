@@ -146,7 +146,7 @@ transformVehicles vehicles =
 
 -- | Filter function to grab specific datapoints, e.g. everything from one ride
 -- or one tram line.
-data Filter = Filter Text ((LocalTime, Vehicle) -> Bool)
+data Filter = Filter Text (Vehicle -> Bool)
 
 -- | So we can combine Filters with (<>).
 instance Semigroup Filter where
@@ -156,7 +156,7 @@ instance Semigroup Filter where
 
 -- | All data points for e.g. Tram 96, in both directions.
 filterTram :: Text -> Filter
-filterTram tram = Filter ("filter" <> tram) $ \(_, v) -> tramId v == tram
+filterTram tram = Filter ("filter" <> tram) $ \v -> tramId v == tram
 
 -- | The deserialization of the per vehicle object from the HAFAS JSON.
 -- Unfortunately we can't really store the timestamp in the structure, as it is
@@ -191,8 +191,8 @@ instance ToJSON Vehicle where
 
 -- | Read all timestamps and Vehicles from a .json.gz file, which is itself the
 -- result of one HAFAS API request. We do not filter here.
-getVehicles :: FilePath -> IO [(LocalTime, Vehicle)]
-getVehicles path =
+getVehicles :: Filter -> FilePath -> IO [(LocalTime, Vehicle)]
+getVehicles (Filter _ vehicleFilter) path =
   -- ./raw/2020-07-08/2020-07-08T16:05:14+02:00.json.gz
   -- We want this:    ^^^^^^^^^^^^^^^^^^^
   let timeStamp = parseTime' $ P.take 19 $ P.drop 17 path
@@ -200,7 +200,7 @@ getVehicles path =
         gzippedContent <- BL.readFile path
         case (Aeson.eitherDecode $ GZ.decompress gzippedContent) of
           (Right res) -> do
-            return $ P.zip (P.repeat timeStamp) res
+            return $ P.zip (P.repeat timeStamp) $ P.filter vehicleFilter res
           (Left err) -> do
             System.IO.hPutStrLn stderr err
             return []
@@ -208,9 +208,9 @@ getVehicles path =
 -- | Read a list of .json.gz files in, decode them and filter them using Filter
 -- functions.
 getAllVehicles :: FilePath -> [FilePath] -> Filter -> IO [(LocalTime, Vehicle)]
-getAllVehicles basePath files (Filter filterName vehicleFilter) = do
-  vehicles <- parallel $ P.map (\f -> getVehicles $ basePath <> f) files
-  return $ (P.filter vehicleFilter $ mconcat vehicles)
+getAllVehicles basePath files filter = do
+  vehicles <- parallel $ P.map (\f -> getVehicles filter $ basePath <> f) files
+  return $ mconcat vehicles
 
 -- | This is a proxy for getAllVehicles, but uses a cached JSON file in
 -- ./cache/ that is named after the used Filter.
