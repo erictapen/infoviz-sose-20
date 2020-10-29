@@ -198,17 +198,23 @@ getVehicles (Filter _ vehicleFilter) path =
   let timeStamp = parseTime' $ P.take 19 $ P.drop 17 path
    in do
         gzippedContent <- BL.readFile path
-        case (Aeson.eitherDecode $ GZ.decompress gzippedContent) of
-          (Right res) -> do
-            return $ P.zip (P.repeat timeStamp) $ P.filter vehicleFilter res
-          (Left err) -> do
-            System.IO.hPutStrLn stderr err
+        if BL.length gzippedContent == 20
+          then do
+            -- When the crawler failed to fetch something, it produced an empty gzip header.
             return []
+          else do
+            case (Aeson.eitherDecode $ GZ.decompress gzippedContent) of
+              (Right res) -> do
+                return $ P.zip (P.repeat timeStamp) $ P.filter vehicleFilter res
+              (Left err) -> do
+                System.IO.hPutStrLn stderr err
+                return []
 
 -- | Read a list of .json.gz files in, decode them and filter them using Filter
 -- functions.
 getAllVehicles :: FilePath -> [FilePath] -> Filter -> IO [(LocalTime, Vehicle)]
 getAllVehicles basePath files filter = do
+  TSIO.putStrLn $ "Reading " <> (TS.pack $ P.show $ P.length files) <> " gzip files from " <> (TS.pack basePath) <> "."
   vehicles <- parallel $ P.map (\f -> getVehicles filter $ basePath <> f) files
   return $ mconcat vehicles
 
