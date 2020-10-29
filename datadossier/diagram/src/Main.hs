@@ -107,8 +107,8 @@ graphicWithLegendsCached :: String -> FilePath -> Text -> (Maybe Double) -> [Str
 graphicWithLegendsCached tram outFile color strokeWidth days =
   let cachePath = "./cache/" <> outFile <> ".svg"
       diagramPath = "./cache/" <> outFile <> "_diagram.svg"
-      diagramWidth = 6 * 60 * 24 -- One unit for 10 seconds
-      diagramHeightFactor = 0.02
+      diagramWidth = 6 * 6 * 24 -- One unit for 10 seconds
+      diagramHeightFactor = 0.002
    in do
         fileExists <- doesFileExist cachePath
         if fileExists

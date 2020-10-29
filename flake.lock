@@ -1,5 +1,23 @@
 {
   "nodes": {
+    "naersk": {
+      "inputs": {
+        "nixpkgs": "nixpkgs"
+      },
+      "locked": {
+        "lastModified": 1602173141,
+        "narHash": "sha256-m6wU6lP0wf2OMw3KtJqn27ITtg29+ftciGHicLiVSGE=",
+        "owner": "nmattia",
+        "repo": "naersk",
+        "rev": "22b96210b2433228d42bce460f3befbdcfde7520",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nmattia",
+        "repo": "naersk",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1600034641,
@@ -31,10 +49,43 @@
         "type": "github"
       }
     },
+    "nixpkgs_2": {
+      "locked": {
+        "lastModified": 1600034641,
+        "narHash": "sha256-+3bd2q7thy0PVNmPJPsMcOGznOyW6Am2Iv4INU1V9QI=",
+        "ref": "custom-20.03",
+        "rev": "f731c43976aab30ea7d0a036d415c69d02a2bf44",
+        "revCount": 215874,
+        "type": "git",
+        "url": "file:///home/justin/nixpkgs"
+      },
+      "original": {
+        "id": "nixpkgs",
+        "type": "indirect"
+      }
+    },
+    "osm-dump": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1603927430,
+        "narHash": "sha256-0xeSLoQZbIOuGGFWdvugYKVlDwtNAFmFs7hfM5rkkuE=",
+        "ref": "master",
+        "rev": "38b239766e74f61bce433714d102ddcaabb1f60f",
+        "revCount": 1,
+        "type": "git",
+        "url": "file:///home/justin/fh/ss-20/infoviz/datadossier/reference-tracks/raw/"
+      },
+      "original": {
+        "type": "git",
+        "url": "file:///home/justin/fh/ss-20/infoviz/datadossier/reference-tracks/raw/"
+      }
+    },
     "root": {
       "inputs": {
-        "nixpkgs": "nixpkgs",
-        "nixpkgs-mozilla": "nixpkgs-mozilla"
+        "naersk": "naersk",
+        "nixpkgs": "nixpkgs_2",
+        "nixpkgs-mozilla": "nixpkgs-mozilla",
+        "osm-dump": "osm-dump"
       }
     }
   },

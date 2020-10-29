@@ -1,5 +1,5 @@
 [package]
-name = "reference-tracks"
+name = "build-reference-tracks"
 version = "0.1.0"
 authors = ["Justin Humm <justin.humm@posteo.de>"]
 edition = "2018"
@@ -11,3 +11,4 @@ osmpbfreader = "*"
 serde_json = "*"
 serde = { version = "*", features = ["derive"] }
 geo = "*"
+docopt = "*"

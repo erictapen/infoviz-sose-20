@@ -1,12 +1,22 @@
 #[macro_use]
 extern crate serde;
 
+use docopt::Docopt;
 use geo::prelude::*;
 use geo::Point;
 use osmpbfreader::objects::{Ref, RelationId};
 use osmpbfreader::{OsmId, OsmObj, Way};
 use std::collections::btree_map::BTreeMap;
 use std::fs::File;
+
+const USAGE: &'static str = "
+Usage: build-reference-tracks --osm OSMFILE <OUTPATH>
+       build-reference-tracks --help
+
+Options:
+    -h, --help                    Show this message.
+    -o, --osm OSMFILE             Openstreetmap dump of Potsdam.
+";
 
 #[derive(Serialize, Debug)]
 struct ReferenceTrack<'a> {
@@ -105,6 +115,11 @@ fn sort_coordinates(mut coordinates: Vec<Coordinate>) -> Vec<Coordinate> {
 }
 
 fn main() {
+    let args = Docopt::new(USAGE)
+        .unwrap()
+        .parse()
+        .unwrap_or_else(|e| e.exit());
+
     let tracks: Vec<(&str, OsmId)> = vec![
         ("91", OsmId::Relation(RelationId(273891))),
         ("92", OsmId::Relation(RelationId(300929))),
@@ -115,7 +130,7 @@ fn main() {
         ("99", OsmId::Relation(RelationId(1585258))),
     ];
 
-    let raw_file = File::open("./raw/brandenburg-latest.osm.pbf").unwrap();
+    let raw_file = File::open(args.get_str("--osm")).unwrap();
     let mut pbf = osmpbfreader::OsmPbfReader::new(&raw_file);
     let objects = pbf
         .get_objs_and_deps(|obj| {
@@ -134,7 +149,8 @@ fn main() {
 
         // Write all the coordinates to one csv file, just for debugging.
         use std::io::prelude::*;
-        let mut file = File::create(format!("{}.csv", track_label)).unwrap();
+        let mut file =
+            File::create(format!("{}/{}.csv", args.get_str("OUTPATH"), track_label)).unwrap();
         let mut counter: usize = 0;
         for (lat, lon) in &coordinates {
             file.write_all(format!("{}, {}, {}\n", lat, lon, counter).as_bytes())
@@ -148,7 +164,8 @@ fn main() {
             stations: stations,
         };
 
-        let file = File::create(format!("{}.json", track_label)).unwrap();
+        let file =
+            File::create(format!("{}/{}.json", args.get_str("OUTPATH"), track_label)).unwrap();
         serde_json::to_writer(file, &reference_track).unwrap();
     }
 }

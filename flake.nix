@@ -6,9 +6,15 @@
       url = "github:mozilla/nixpkgs-mozilla";
       flake = false;
     };
+    naersk.url = "github:nmattia/naersk";
+    osm-dump = {
+      type = "git";
+      url = "file:///home/justin/fh/ss-20/infoviz/datadossier/reference-tracks/raw/";
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-mozilla }:
+  outputs = { self, nixpkgs, nixpkgs-mozilla, naersk, osm-dump }:
     let
       forAllSystems = f: nixpkgs.lib.genAttrs
         [ "x86_64-linux" "i686-linux" "aarch64-linux" ]
@@ -44,6 +50,28 @@
                 | ${pkgs.gzip}/bin/gzip -c \
                 > "$dir/$(date --iso-8601=seconds).json.gz"
             '';
+          build-reference-tracks =
+            let
+              naerskP = pkgs.callPackage naersk {
+                rustc = (pkgs.rustChannelOf {
+                  date = "2020-10-10";
+                  channel = "nightly";
+                  sha256 = "sha256-PLdvfPsf813gJu5UbcQv9+6zig3KZOvJHw0ZF1xvWoU=";
+                }).rust;
+              };
+            in
+            naerskP.buildPackage {
+              src = ./datadossier/reference-tracks;
+              buildInputs = with pkgs; [
+                zlib
+              ];
+            };
+          reference-tracks = pkgs.runCommand "reference-tracks" { } ''
+            mkdir -p $out
+            ${build-reference-tracks}/bin/build-reference-tracks \
+              --osm ${osm-dump}/brandenburg-latest.osm.pbf \
+              $out
+          '';
           diagram = pkgs.stdenv.mkDerivation {
 
             name = "diagram";
@@ -74,8 +102,9 @@
 
             buildPhase = ''
               patchShebangs .
-              ghc -O2 -o Main src/Main.hs
-              ./Main
+              cp ${reference-tracks}/*.json cache/
+              ghc -O2 -threaded -o Main -isrc src/Main.hs
+              ./Main  +RTS -N$NIX_BUILD_CORES -RTS
             '';
 
             installPhase = ''
