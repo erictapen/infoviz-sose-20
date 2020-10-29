@@ -240,7 +240,7 @@ getAllVehiclesCached day filter@(Filter filterName vehicleFilter) =
                 return $ Line "" []
           else do
             TSIO.putStrLn $ "Cache miss: " <> cacheName
-            rawRes <- parallel
+            rawRes <- sequence
               $ P.map
                 ( \d -> do
                     fileList <- listDirectory $ "./raw/" <> d <> "/"
