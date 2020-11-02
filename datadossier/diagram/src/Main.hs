@@ -161,6 +161,32 @@ tramIds =
     "99"
   ]
 
+-- | A big number in front of the diagram, signifying the Id of the tram.
+tramIdHeading :: Double -> Text -> Element
+tramIdHeading y id =
+  let fontSize = 36
+   in ( text_
+          [ X_ <<- (toText 0),
+            Y_ <<- (toText $ y + fontSize),
+            Font_family_ <<- "Fira Sans",
+            Font_weight_ <<- "Bold",
+            Text_anchor_ <<- "middle",
+            Style_ <<- "text-align: middle; font-weight: bold;",
+            Font_size_ <<- toText fontSize
+          ]
+          $ toElement id
+      )
+        <> rect_
+          [ X_ <<- (toText $ -0.5 * 1.38 * fontSize),
+            Y_ <<- (toText $ y + 0.15 * fontSize),
+            Height_ <<- toText fontSize,
+            Width_ <<- (toText $ 1.38 * fontSize ),
+            Ry_ <<- toText 7.5,
+            Stroke_ <<- "black",
+            Fill_ <<- "none",
+            Stroke_width_ <<- toText 2.1
+          ]
+
 plakat :: IO ()
 plakat =
   let diagramWidth = 600
@@ -172,19 +198,18 @@ plakat =
             totalTrackLength = sum trackLengths
             diagramHeightFactor = (0.75 * 500) / totalTrackLength
             gapSize = (0.25 * 500) / (fromIntegral $ P.length trackLengths - 1)
-            imagePaths =
-              P.zip
+            heights =
+              P.zip tramIds $
                 (P.map (diagramHeightFactor *) trackLengths)
-                $ P.map (\id -> "poster_diagram_" <> id <> ".svg.png") tramIds
-            diagrams :: Double -> Double -> [(Double, Text)] -> Element
+            diagrams :: Double -> Double -> [(Text, Double)] -> Element
             diagrams _ _ [] = mempty
-            diagrams gap cursorY ((height, filePath) : rs) =
+            diagrams gap cursorY ((tramId, height) : rs) =
               ( image_
                   [ X_ <<- (toText 0),
                     Y_ <<- (toText cursorY),
                     Width_ <<- (toText diagramWidth),
                     Height_ <<- (toText height),
-                    XlinkHref_ <<- filePath
+                    XlinkHref_ <<- "poster_diagram_" <> tramId <> ".svg.png"
                   ]
               )
                 <> ( xLegend
@@ -192,6 +217,7 @@ plakat =
                        (placeOnX diagramWidth)
                        [(TimeOfDay h m 0) | h <- [0 .. 23], m <- [0]]
                    )
+                <> (tramIdHeading cursorY tramId)
                 <> diagrams gap (cursorY + height + gap) rs
          in do
               parallel_
@@ -216,9 +242,9 @@ plakat =
                 $ P.show
                 $ svg 594 841
                 $ g_
-                  [ Transform_ <<- translate 100 20
+                  [ Transform_ <<- translate 100 55
                   ]
-                $ diagrams gapSize 0 imagePaths
+                $ diagrams gapSize 0 heights
 
 main :: IO ()
 main = do
