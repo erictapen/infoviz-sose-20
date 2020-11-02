@@ -14,6 +14,7 @@ import Diagram
 import GHC.IO.Encoding
 import Geo
 import Graphics.Svg
+import Hafas
 import ReferenceTrack
 import System.Directory
 import Prelude as P
@@ -103,7 +104,7 @@ svg height width content =
 
 -- | A graphic is a finished SVG file that can be presented e.g. in the
 -- datadossier. It consists of a diagram and legends of x- and y-axis.
-graphicWithLegendsCached :: String -> FilePath -> Text -> (Maybe Double) -> Maybe String -> IO ()
+graphicWithLegendsCached :: String -> FilePath -> Text -> (Maybe Double) -> Maybe Day -> IO ()
 graphicWithLegendsCached tram outFile color strokeWidth day =
   let cachePath = "./cache/" <> outFile <> ".svg"
       diagramPath = "./cache/" <> outFile <> "_diagram.svg"
@@ -222,7 +223,7 @@ plakat =
 main :: IO ()
 main = do
   setLocaleEncoding utf8
-  graphicWithLegendsCached "96" "2020-07-06_96" "black" (Just 1) (Just "2020-07-06")
+  graphicWithLegendsCached "96" "2020-07-06_96" "black" (Just 1) (Just $ SomeDay "2020-07-06")
   graphicWithLegendsCached "96" "all_days_96" "black" (Just 1) Nothing
   graphicWithLegendsCached "91" "all_days_blended_91" "#cccccc" Nothing Nothing
   graphicWithLegendsCached "92" "all_days_blended_92" "#cccccc" Nothing Nothing

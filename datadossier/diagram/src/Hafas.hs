@@ -7,6 +7,8 @@ module Hafas
     TripId,
     getAllVehiclesCached,
     filterTram,
+    Day (Saturday, Monday, SomeDay),
+    seconds,
   )
 where
 
@@ -34,30 +36,61 @@ data Line = Line Text [(TripId, [(LocalTime, GeoCoord)])]
 
 type TripId = Int
 
-allDays :: [String]
+-- | A distinction so we can use only the first 3 hours of a saturday and all
+-- but the first 3 hours of a monday. This way we make sure to really use only
+-- weekday data.
+data Day = Saturday String | Monday String | SomeDay String
+
+-- | Seconds from midnight on a TimeOfDay
+seconds :: TimeOfDay -> Double
+seconds (TimeOfDay h m s) =
+  fromIntegral $
+    3600 * h
+      + 60 * m
+      -- Yeah… Seriously. That's how I get the seconds out of a TimeOfDay.
+      + div (fromEnum s) 1000000000000
+
+-- | The path were the raw data for a given day is located.
+dayPath :: Day -> FilePath
+dayPath (Saturday s) = "./raw/" <> s <> "/"
+dayPath (Monday s) = "./raw/" <> s <> "/"
+dayPath (SomeDay s) = "./raw/" <> s <> "/"
+
+-- | True if a given day contains the timestamp. From saturdays we only want
+-- the first 3 hours. From mondays only the last 21 hours.
+dayContains :: Day -> LocalTime -> Bool
+dayContains (Saturday _) time = 3600 * 3 < (seconds $ localTimeOfDay time)
+dayContains (Monday _) time = 3600 * 3 >= (seconds $ localTimeOfDay time)
+dayContains (SomeDay _) _ = True
+
+allDays :: [Day]
 allDays =
   [ -- We don't use 2020-06-17, as it is incomplete
-    "2020-06-18",
-    "2020-06-19",
-    "2020-06-22",
-    "2020-06-23",
-    "2020-06-24",
-    "2020-06-25",
-    "2020-06-26",
-    "2020-06-29",
-    "2020-06-30",
-    "2020-07-01",
-    "2020-07-02",
-    "2020-07-03",
-    "2020-07-06",
-    "2020-07-07",
-    "2020-07-08",
-    "2020-07-09",
-    "2020-07-10",
-    "2020-07-13",
-    "2020-07-14",
-    "2020-07-15",
-    "2020-07-16"
+    SomeDay "2020-06-18",
+    SomeDay "2020-06-19",
+    Saturday "2020-06-20",
+    Monday "2020-06-22",
+    SomeDay "2020-06-23",
+    SomeDay "2020-06-24",
+    SomeDay "2020-06-25",
+    SomeDay "2020-06-26",
+    Saturday "2020-06-27",
+    Monday "2020-06-29",
+    SomeDay "2020-06-30",
+    SomeDay "2020-07-01",
+    SomeDay "2020-07-02",
+    SomeDay "2020-07-03",
+    Saturday "2020-07-04",
+    Monday "2020-07-06",
+    SomeDay "2020-07-07",
+    SomeDay "2020-07-08",
+    SomeDay "2020-07-09",
+    SomeDay "2020-07-10",
+    Saturday "2020-07-11",
+    Monday "2020-07-13",
+    SomeDay "2020-07-14",
+    SomeDay "2020-07-15",
+    SomeDay "2020-07-16"
   ]
 
 -- | Show a line as an CSV table, just a helper function I'll not use often.
@@ -191,39 +224,43 @@ instance ToJSON Vehicle where
 
 -- | Read all timestamps and Vehicles from a .json.gz file, which is itself the
 -- result of one HAFAS API request. We do not filter here.
-getVehicles :: Filter -> FilePath -> IO [(LocalTime, Vehicle)]
-getVehicles (Filter _ vehicleFilter) path =
+getVehicles :: Day -> Filter -> FilePath -> IO [(LocalTime, Vehicle)]
+getVehicles day (Filter _ vehicleFilter) path =
   -- ./raw/2020-07-08/2020-07-08T16:05:14+02:00.json.gz
   -- We want this:    ^^^^^^^^^^^^^^^^^^^
   let timeStamp = parseTime' $ P.take 19 $ P.drop 17 path
-   in do
-        gzippedContent <- BL.readFile path
-        if BL.length gzippedContent == 20
-          then do
-            -- When the crawler failed to fetch something, it produced an empty gzip header.
-            return []
-          else do
-            case (Aeson.eitherDecode $ GZ.decompress gzippedContent) of
-              (Right res) -> do
-                return $ P.zip (P.repeat timeStamp) $ P.filter vehicleFilter res
-              (Left err) -> do
-                System.IO.hPutStrLn stderr err
-                return []
+   in if dayContains day timeStamp
+        then do
+          gzippedContent <- BL.readFile path
+          if BL.length gzippedContent == 20
+            then do
+              -- When the crawler failed to fetch something, it produced an empty gzip header.
+              return []
+            else do
+              case (Aeson.eitherDecode $ GZ.decompress gzippedContent) of
+                (Right res) -> do
+                  return $ P.zip (P.repeat timeStamp) $ P.filter vehicleFilter res
+                (Left err) -> do
+                  System.IO.hPutStrLn stderr err
+                  return []
+        else do return []
 
 -- | Read a list of .json.gz files in, decode them and filter them using Filter
 -- functions.
-getAllVehicles :: FilePath -> [FilePath] -> Filter -> IO [(LocalTime, Vehicle)]
-getAllVehicles basePath files filter = do
-  TSIO.putStrLn $ "Reading " <> (TS.pack $ P.show $ P.length files) <> " gzip files from " <> (TS.pack basePath) <> "."
-  vehicles <- parallel $ P.map (\f -> getVehicles filter $ basePath <> f) files
+getAllVehicles :: Day -> Filter -> IO [(LocalTime, Vehicle)]
+getAllVehicles day filter = do
+  files <- listDirectory $ dayPath day
+  TSIO.putStrLn $ "Reading " <> (TS.pack $ P.show $ P.length files) <> " gzip files from " <> (TS.pack $ dayPath day) <> "."
+  vehicles <- parallel $ P.map (\f -> getVehicles day filter $ dayPath day <> f) files
   return $ mconcat vehicles
 
 -- | This is a proxy for getAllVehicles, but uses a cached JSON file in
 -- ./cache/ that is named after the used Filter.
-getAllVehiclesCached :: (Maybe String) -> Filter -> IO Line
+getAllVehiclesCached :: (Maybe Day) -> Filter -> IO Line
 getAllVehiclesCached day filter@(Filter filterName vehicleFilter) =
   let cacheName = case day of
-        Just d -> "./cache/" <> (TS.pack d) <> "-" <> filterName <> ".json"
+        Just (SomeDay d) -> "./cache/" <> (TS.pack d) <> "-" <> filterName <> ".json"
+        Just _ -> error "not implemented."
         Nothing -> "./cache/all_days-" <> filterName <> ".json"
       cachePath = TS.unpack cacheName
       -- Stupid conversion functions I needed to write in order to make JSON
@@ -248,9 +285,8 @@ getAllVehiclesCached day filter@(Filter filterName vehicleFilter) =
             TSIO.putStrLn $ "Cache miss: " <> cacheName
             rawRes <- sequence
               $ P.map
-                ( \d -> do
-                    fileList <- listDirectory $ "./raw/" <> d <> "/"
-                    getAllVehicles ("./raw/" <> d <> "/") fileList filter
+                ( \day -> do
+                    getAllVehicles day filter
                 )
               $ case day of
                 Just d -> [d]

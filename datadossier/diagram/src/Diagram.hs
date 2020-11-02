@@ -34,15 +34,6 @@ svg width height content =
         ViewBox_ <<- "0 0 " <> (toText width) <> " " <> height
       ]
 
--- | Seconds from midnight on a TimeOfDay
-seconds :: TimeOfDay -> Double
-seconds (TimeOfDay h m s) =
-  fromIntegral $
-    3600 * h
-      + 60 * m
-      -- Yeah… Seriously. That's how I get the seconds out of a TimeOfDay.
-      + div (fromEnum s) 1000000000000
-
 -- | Transforms a [(LocalTime -> Double)] and two placement functions fx, fy to
 -- an SVG Element. Recursively calls tripToElement'.
 tripToElement ::
@@ -117,7 +108,7 @@ data Diagram
       Text
       (Maybe Double)
       ReferenceTrack
-      (Maybe String)
+      (Maybe Day)
 
 -- | Transforms some metadata and a Line to an SVG ELement.
 diagram :: Diagram -> Hafas.Line -> Element
@@ -139,14 +130,14 @@ diagram (Diagram _ _ width heightFactor color strokeWidth refTrack _) (Hafas.Lin
 
 -- | Effectful and caching version of diagram.
 diagramCached :: Diagram -> IO ()
-diagramCached diagramData@(Diagram tramId outFile _ _ _ _ _ days) =
+diagramCached diagramData@(Diagram tramId outFile _ _ _ _ _ day) =
   do
     fileExists <- doesFileExist outFile
     if fileExists
       then P.putStrLn $ "Cache hit:  " <> outFile
       else do
         P.putStrLn $ "Cache miss: " <> outFile
-        line <- getAllVehiclesCached days $ filterTram tramId
+        line <- getAllVehiclesCached day $ filterTram tramId
         P.writeFile outFile $ P.show $ diagram diagramData line
         readProcess "./raster.sh" [outFile] ""
         mempty
