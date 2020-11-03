@@ -273,7 +273,7 @@ getAllVehiclesCached day filter@(Filter filterName vehicleFilter) =
         fileExists <- doesFileExist cachePath
         if fileExists
           then do
-            TSIO.putStrLn $ "Cache hit: " <> cacheName
+            TSIO.putStrLn $ "Cache hit:  " <> cacheName
             cacheContent <- BL.readFile cachePath
             case (Aeson.eitherDecode cacheContent) of
               (Right res) -> do
