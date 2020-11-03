@@ -40,7 +40,7 @@ xLegend height fx times =
                 Font_family_ <<- "Fira Sans",
                 Text_anchor_ <<- "middle",
                 Style_ <<- "text-align: center;",
-                Font_size_ <<- "4"
+                Font_size_ <<- "3.5"
               ]
               $ toElement
               $ formatTime t
@@ -56,9 +56,9 @@ xLegend height fx times =
       )
       times
 
-yLegend :: Double -> Double -> (GeoCoord -> Maybe Double) -> [(Text, GeoCoord)] -> Element
-yLegend _ _ _ [] = mempty
-yLegend cursorY width fy ((label, coord) : stations) =
+yLegend :: Bool -> Double -> Double -> (GeoCoord -> Maybe Double) -> [(Text, GeoCoord)] -> Element
+yLegend _ _ _ _ [] = mempty
+yLegend indented cursorY width fy ((label, coord) : stations) =
   ( case (fy coord) of
       Nothing ->
         error $
@@ -69,17 +69,17 @@ yLegend cursorY width fy ((label, coord) : stations) =
             <> " to y axis. Maybe increase tolerance?"
       (Just yPos) ->
         ( ( text_
-              [ X_ <<- (toText (- 3)),
+              [ X_ <<- (toText (- 3 - (if indented then 70 else 0))),
                 Y_ <<- (toText (cursorY + yPos + 1)),
                 Font_family_ <<- "Fira Sans",
                 Text_anchor_ <<- "end",
                 Style_ <<- "text-align: end;",
-                Font_size_ <<- "4"
+                Font_size_ <<- "3.5"
               ]
               $ toElement label
           )
             <> line_
-              [ X1_ <<- (toText 0),
+              [ X1_ <<- (toText $ 0 - (if indented then 70 else 0)),
                 Y1_ <<- (toText $ cursorY + yPos),
                 X2_ <<- (toText width),
                 Y2_ <<- (toText $ cursorY + yPos),
@@ -88,7 +88,7 @@ yLegend cursorY width fy ((label, coord) : stations) =
               ]
         )
   )
-    <> yLegend cursorY width fy stations
+    <> yLegend (not indented) cursorY width fy stations
 
 -- document root
 svg :: Double -> Double -> Element -> Element
@@ -143,7 +143,7 @@ graphicWithLegendsCached tram outFile color strokeWidth day =
                       XlinkHref_ <<- ("data:image/jpeg;base64," <> encodeBase64 rasterContent)
                     ]
                 )
-                <> (yLegend 0 diagramWidth (placeOnY diagramHeightFactor 100 $ fromReferenceTrack refTrack) stations)
+                <> (yLegend True 0 diagramWidth (placeOnY diagramHeightFactor 100 $ fromReferenceTrack refTrack) stations)
                 <> ( xLegend
                        0
                        (placeOnX diagramWidth)
@@ -180,7 +180,7 @@ tramIdHeading y id =
           [ X_ <<- (toText $ -0.5 * 1.38 * fontSize),
             Y_ <<- (toText $ y + 0.15 * fontSize),
             Height_ <<- toText fontSize,
-            Width_ <<- (toText $ 1.38 * fontSize ),
+            Width_ <<- (toText $ 1.38 * fontSize),
             Ry_ <<- toText 7.5,
             Stroke_ <<- "black",
             Fill_ <<- "none",
@@ -196,28 +196,28 @@ plakat =
             P.map (\id -> readReferenceTrackFromFile $ (TS.unpack id) <> ".json") tramIds
         let trackLengths = P.map trackLength $ P.map fst referenceTracksAndStations
             totalTrackLength = sum trackLengths
-            diagramHeightFactor = (0.75 * 500) / totalTrackLength
-            gapSize = (0.25 * 500) / (fromIntegral $ P.length trackLengths - 1)
+            diagramHeightFactor = (0.65 * 500) / totalTrackLength
+            gapSize = (0.35 * 500) / (fromIntegral $ P.length trackLengths - 1)
             heights =
               P.zip tramIds $
                 (P.map (diagramHeightFactor *) trackLengths)
             diagrams :: Double -> Double -> [(Text, Double)] -> [(ReferenceTrack, [(Text, GeoCoord)])] -> Element
             diagrams _ _ [] _ = mempty
-            diagrams gap cursorY ((tramId, height) : rs) ((refTrack, stations):xs) =
-              ( image_
-                  [ X_ <<- (toText 0),
-                    Y_ <<- (toText cursorY),
-                    Width_ <<- (toText diagramWidth),
-                    Height_ <<- (toText height),
-                    XlinkHref_ <<- "poster_diagram_" <> tramId <> ".svg.png"
-                  ]
+            diagrams gap cursorY ((tramId, height) : rs) ((refTrack, stations) : xs) =
+              ( xLegend
+                  cursorY
+                  (placeOnX diagramWidth)
+                  [(TimeOfDay h m 0) | h <- [0 .. 23], m <- [0]]
               )
-                <> ( xLegend
-                       cursorY
-                       (placeOnX diagramWidth)
-                       [(TimeOfDay h m 0) | h <- [0 .. 23], m <- [0]]
+                <> (yLegend True cursorY diagramWidth (placeOnY diagramHeightFactor 100 $ fromReferenceTrack refTrack) stations)
+                <> ( image_
+                       [ X_ <<- (toText 0),
+                         Y_ <<- (toText cursorY),
+                         Width_ <<- (toText diagramWidth),
+                         Height_ <<- (toText height),
+                         XlinkHref_ <<- "poster_diagram_" <> tramId <> ".svg.png"
+                       ]
                    )
-                <> (yLegend cursorY diagramWidth (placeOnY diagramHeightFactor 100 $ fromReferenceTrack refTrack) stations)
                 <> (tramIdHeading cursorY tramId)
                 <> diagrams gap (cursorY + height + gap) rs xs
          in do
@@ -243,7 +243,7 @@ plakat =
                 $ P.show
                 $ svg 594 841
                 $ g_
-                  [ Transform_ <<- translate 100 55
+                  [ Transform_ <<- translate 180 55
                   ]
                 $ diagrams gapSize 0 heights referenceTracksAndStations
 
