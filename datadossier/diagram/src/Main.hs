@@ -56,7 +56,7 @@ xLegend height fx times =
       )
       times
 
-yLegend :: Double -> Double -> (GeoCoord -> Maybe Double) -> [(Text, GeoCoord)] -> Element
+yLegend :: Double -> Double -> (GeoCoord -> Maybe Double) -> [Station] -> Element
 yLegend cursorY width fy stations =
   let indentedStations = P.zip stations $ cycle [False, True]
       yPos (label, coord) =
@@ -70,7 +70,7 @@ yLegend cursorY width fy stations =
           )
           id
           $ fy coord
-      legendText :: ((Text, GeoCoord), Bool) -> Element
+      legendText :: (Station, Bool) -> Element
       legendText (station@(label, _), indented) =
         ( text_
             [ X_ <<- (toText (- 3 - (if indented then 105 else 20))),
@@ -82,7 +82,7 @@ yLegend cursorY width fy stations =
             ]
             $ toElement label
         )
-      legendLine :: ((Text, GeoCoord), Bool) -> Element
+      legendLine :: (Station, Bool) -> Element
       legendLine (station, indented) =
         line_
           [ X1_ <<- (toText $ 0 - (if indented then 105 else 20)),
@@ -207,7 +207,7 @@ plakat =
             heights =
               P.zip tramIds $
                 (P.map (diagramHeightFactor *) trackLengths)
-            diagrams :: Double -> Double -> [(Text, Double)] -> [(ReferenceTrack, [(Text, GeoCoord)])] -> Element
+            diagrams :: Double -> Double -> [(Text, Double)] -> [(ReferenceTrack, [Station])] -> Element
             diagrams _ _ [] _ = mempty
             diagrams gap cursorY ((tramId, height) : rs) ((refTrack, stations) : xs) =
               ( xLegend

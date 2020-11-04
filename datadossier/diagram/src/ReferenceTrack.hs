@@ -4,6 +4,7 @@
 
 module ReferenceTrack
   ( ReferenceTrack,
+    Station,
     readReferenceTrackFromFile,
     locateCoordOnTrackLength,
     trackLength,
@@ -30,11 +31,13 @@ data ReferenceTrackJson
   = ReferenceTrackJson
       { label :: Text,
         coordinates :: [GeoCoord],
-        stations :: [(Text, GeoCoord)]
+        stations :: [Station]
       }
   deriving (Generic, Show)
 
 instance FromJSON ReferenceTrackJson
+
+type Station = (Text, GeoCoord)
 
 -- | Convert a ReferenceTrack into a KdTree of TrackPoints.
 fromReferenceTrack :: ReferenceTrack -> KdTree TrackPoint
@@ -49,7 +52,7 @@ completeReferenceTrack :: ReferenceTrackJson -> ReferenceTrackJson
 completeReferenceTrack rt@(ReferenceTrackJson label coordinates stations)
   -- Bad bad bad ugly hack. Tram 99 actually starts at Bisamkiez, not Platz der Einheit/Nord. So we have to subtract the first two stations (and their coordinates) and then append the nine more stations from Bisamkiez on.
   | (label == "99") =
-    let bisamkiezToPdEBF :: [(Text, GeoCoord)]
+    let bisamkiezToPdEBF :: [Station]
         bisamkiezToPdEBF =
           [ ("Biesamkiez", (52.3733498, 13.1011966)),
             ("Magnus-Zeller-Platz", (52.3751684, 13.0912547)),
@@ -89,7 +92,7 @@ enrichTrackWithLength m (x : []) = (m, x) : []
 enrichTrackWithLength m (x : next : xs) =
   (m, x) : (enrichTrackWithLength (m + distance (geoToPoint x) (geoToPoint next)) (next : xs))
 
-readReferenceTrackFromFile :: FilePath -> IO (ReferenceTrack, [(Text, GeoCoord)])
+readReferenceTrackFromFile :: FilePath -> IO (ReferenceTrack, [Station])
 readReferenceTrackFromFile f = do
   fileContent <- BL.readFile $ "./cache/" <> f
   case (Aeson.eitherDecode fileContent) of
