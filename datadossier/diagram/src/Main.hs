@@ -172,8 +172,8 @@ tramIdHeading :: Double -> Text -> Element
 tramIdHeading y id =
   let fontSize = 36
    in ( text_
-          [ X_ <<- (toText 0),
-            Y_ <<- (toText $ y + fontSize),
+          [ X_ <<- (toText $ -200),
+            Y_ <<- (toText $ y - 4 + fontSize),
             Font_family_ <<- "Fira Sans",
             Font_weight_ <<- "Bold",
             Text_anchor_ <<- "middle",
@@ -183,8 +183,8 @@ tramIdHeading y id =
           $ toElement id
       )
         <> rect_
-          [ X_ <<- (toText $ -0.5 * 1.38 * fontSize),
-            Y_ <<- (toText $ y + 0.15 * fontSize),
+          [ X_ <<- (toText $ -200 - 0.5 * 1.38 * fontSize),
+            Y_ <<- (toText $ y - 4 + 0.15 * fontSize),
             Height_ <<- toText fontSize,
             Width_ <<- (toText $ 1.38 * fontSize),
             Ry_ <<- toText 7.5,
@@ -249,7 +249,7 @@ plakat =
                 $ P.show
                 $ svg 594 841
                 $ g_
-                  [ Transform_ <<- translate 200 55
+                  [ Transform_ <<- translate 270 55
                   ]
                 $ diagrams gapSize 0 heights referenceTracksAndStations
 
