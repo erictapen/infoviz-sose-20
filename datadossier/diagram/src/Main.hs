@@ -50,8 +50,8 @@ xLegend height fx times =
                 X2_ <<- (toText (fx t)),
                 Y1_ <<- (toText (height -3)),
                 Y2_ <<- (toText (height -1)),
-                Stroke_ <<- "black",
-                Stroke_width_ <<- "1"
+                Stroke_ <<- "#C0C0C0",
+                Stroke_width_ <<- "0.2"
               ]
       )
       times
@@ -90,7 +90,7 @@ yLegend cursorY width fy stations =
             X2_ <<- (toText width),
             Y2_ <<- (toText $ cursorY + (yPos station)),
             Stroke_ <<- "#C0C0C0",
-            Stroke_width_ <<- "0.5"
+            Stroke_width_ <<- "0.2"
           ]
    in mconcat $
         (P.map legendLine indentedStations)
