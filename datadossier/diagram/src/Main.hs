@@ -173,7 +173,7 @@ tramIdHeading y id =
   let fontSize = 36
    in ( text_
           [ X_ <<- (toText $ -200),
-            Y_ <<- (toText $ y - 4 + fontSize),
+            Y_ <<- (toText $ y + fontSize),
             Font_family_ <<- "Fira Sans",
             Font_weight_ <<- "Bold",
             Text_anchor_ <<- "middle",
@@ -184,8 +184,8 @@ tramIdHeading y id =
       )
         <> rect_
           [ X_ <<- (toText $ -200 - 0.5 * 1.38 * fontSize),
-            Y_ <<- (toText $ y - 4 + 0.15 * fontSize),
-            Height_ <<- toText fontSize,
+            Y_ <<- (toText $ y + 0 * fontSize),
+            Height_ <<- (toText $ 1.20 * fontSize),
             Width_ <<- (toText $ 1.38 * fontSize),
             Ry_ <<- toText 7.5,
             Stroke_ <<- "black",
