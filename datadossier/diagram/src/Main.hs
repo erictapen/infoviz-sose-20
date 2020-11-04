@@ -73,19 +73,19 @@ yLegend cursorY width fy stations =
       legendText :: (Station, Bool) -> Element
       legendText (station@(label, _), indented) =
         ( text_
-            [ X_ <<- (toText (- 3 - (if indented then 85 else 20))),
+            [ X_ <<- (toText (- 3 - (if indented then 40 else 10))),
               Y_ <<- (toText (cursorY + (yPos station) + 1)),
               Font_family_ <<- "Fira Sans",
               Text_anchor_ <<- "end",
               Style_ <<- "text-align: end;",
-              Font_size_ <<- "3.5"
+              Font_size_ <<- "2"
             ]
             $ toElement label
         )
       legendLine :: (Station, Bool) -> Element
       legendLine (station, indented) =
         line_
-          [ X1_ <<- (toText $ 0 - (if indented then 85 else 20)),
+          [ X1_ <<- (toText $ 0 - (if indented then 40 else 10)),
             Y1_ <<- (toText $ cursorY + (yPos station)),
             X2_ <<- (toText width),
             Y2_ <<- (toText $ cursorY + (yPos station)),
@@ -170,9 +170,9 @@ tramIds =
 -- | A big number in front of the diagram, signifying the Id of the tram.
 tramIdHeading :: Double -> Text -> Element
 tramIdHeading y id =
-  let fontSize = 36
+  let fontSize = 12
    in ( text_
-          [ X_ <<- (toText $ -180),
+          [ X_ <<- (toText $ -90),
             Y_ <<- (toText $ y + fontSize),
             Font_family_ <<- "Fira Sans",
             Font_weight_ <<- "Bold",
@@ -183,14 +183,14 @@ tramIdHeading y id =
           $ toElement id
       )
         <> rect_
-          [ X_ <<- (toText $ -180 - 0.5 * 1.38 * fontSize),
+          [ X_ <<- (toText $ -90 - 0.5 * 1.38 * fontSize),
             Y_ <<- (toText $ y + 0 * fontSize),
             Height_ <<- (toText $ 1.20 * fontSize),
             Width_ <<- (toText $ 1.38 * fontSize),
-            Ry_ <<- toText 7.5,
+            Ry_ <<- (toText $ fontSize / 4),
             Stroke_ <<- "black",
             Fill_ <<- "none",
-            Stroke_width_ <<- toText 2.1
+            Stroke_width_ <<- (toText $ fontSize / 12)
           ]
 
 plakat :: IO ()
@@ -200,9 +200,10 @@ plakat = do
       P.map (\id -> readReferenceTrackFromFile $ (TS.unpack id) <> ".json") tramIds
   let trackLengths = P.map trackLength $ P.map fst referenceTracksAndStations
       totalTrackLength = sum trackLengths
-      diagramHeightFactor = (0.65 * 500) / totalTrackLength
-      diagramWidth = 530
-      gapSize = (0.35 * 500) / (fromIntegral $ P.length trackLengths - 1)
+      diagramWidth = 660
+      diagramHeight = 250
+      diagramHeightFactor = (0.65 * diagramHeight) / totalTrackLength
+      gapSize = (0.35 * diagramHeight) / (fromIntegral $ P.length trackLengths - 1)
       heights =
         P.zip tramIds $
           (P.map (diagramHeightFactor *) trackLengths)
@@ -248,7 +249,7 @@ plakat = do
           $ P.show
           $ svg 594 841
           $ g_
-            [ Transform_ <<- translate 270 35
+            [ Transform_ <<- translate 135 35
             ]
           $ diagrams gapSize 0 heights referenceTracksAndStations
 
