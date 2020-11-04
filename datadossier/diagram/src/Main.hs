@@ -195,7 +195,7 @@ tramIdHeading y id =
 
 plakat :: IO ()
 plakat =
-  let diagramWidth = 600
+  let diagramWidth = 530
    in do
         referenceTracksAndStations <-
           parallel $
