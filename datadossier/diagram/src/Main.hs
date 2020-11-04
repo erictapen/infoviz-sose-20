@@ -69,7 +69,7 @@ yLegend indented cursorY width fy ((label, coord) : stations) =
             <> " to y axis. Maybe increase tolerance?"
       (Just yPos) ->
         ( ( text_
-              [ X_ <<- (toText (- 3 - (if indented then 70 else 0))),
+              [ X_ <<- (toText (- 3 - (if indented then 90 else 20))),
                 Y_ <<- (toText (cursorY + yPos + 1)),
                 Font_family_ <<- "Fira Sans",
                 Text_anchor_ <<- "end",
@@ -79,7 +79,7 @@ yLegend indented cursorY width fy ((label, coord) : stations) =
               $ toElement label
           )
             <> line_
-              [ X1_ <<- (toText $ 0 - (if indented then 70 else 0)),
+              [ X1_ <<- (toText $ 0 - (if indented then 90 else 20)),
                 Y1_ <<- (toText $ cursorY + yPos),
                 X2_ <<- (toText width),
                 Y2_ <<- (toText $ cursorY + yPos),
@@ -243,7 +243,7 @@ plakat =
                 $ P.show
                 $ svg 594 841
                 $ g_
-                  [ Transform_ <<- translate 180 55
+                  [ Transform_ <<- translate 200 55
                   ]
                 $ diagrams gapSize 0 heights referenceTracksAndStations
 
