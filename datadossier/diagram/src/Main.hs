@@ -56,39 +56,45 @@ xLegend height fx times =
       )
       times
 
-yLegend :: Bool -> Double -> Double -> (GeoCoord -> Maybe Double) -> [(Text, GeoCoord)] -> Element
-yLegend _ _ _ _ [] = mempty
-yLegend indented cursorY width fy ((label, coord) : stations) =
-  ( case (fy coord) of
-      Nothing ->
-        error $
-          "Failed to map station "
-            <> (TS.unpack label)
-            <> ", "
-            <> (P.show coord)
-            <> " to y axis. Maybe increase tolerance?"
-      (Just yPos) ->
-        ( ( text_
-              [ X_ <<- (toText (- 3 - (if indented then 90 else 20))),
-                Y_ <<- (toText (cursorY + yPos + 1)),
-                Font_family_ <<- "Fira Sans",
-                Text_anchor_ <<- "end",
-                Style_ <<- "text-align: end;",
-                Font_size_ <<- "3.5"
-              ]
-              $ toElement label
+yLegend :: Double -> Double -> (GeoCoord -> Maybe Double) -> [(Text, GeoCoord)] -> Element
+yLegend cursorY width fy stations =
+  let indentedStations = P.zip stations $ cycle [True, False]
+      yPos (label, coord) =
+        maybe
+          ( error $
+              "Failed to map station "
+                <> (TS.unpack label)
+                <> ", "
+                <> (P.show coord)
+                <> " to y axis. Maybe increase tolerance?"
           )
-            <> line_
-              [ X1_ <<- (toText $ 0 - (if indented then 90 else 20)),
-                Y1_ <<- (toText $ cursorY + yPos),
-                X2_ <<- (toText width),
-                Y2_ <<- (toText $ cursorY + yPos),
-                Stroke_ <<- "#C0C0C0",
-                Stroke_width_ <<- "0.5"
-              ]
+          id
+          $ fy coord
+      legendText :: ((Text, GeoCoord), Bool) -> Element
+      legendText (station@(label, _), indented) =
+        ( text_
+            [ X_ <<- (toText (- 3 - (if indented then 90 else 20))),
+              Y_ <<- (toText (cursorY + (yPos station) + 1)),
+              Font_family_ <<- "Fira Sans",
+              Text_anchor_ <<- "end",
+              Style_ <<- "text-align: end;",
+              Font_size_ <<- "3.5"
+            ]
+            $ toElement label
         )
-  )
-    <> yLegend (not indented) cursorY width fy stations
+      legendLine :: ((Text, GeoCoord), Bool) -> Element
+      legendLine (station, indented) =
+        line_
+          [ X1_ <<- (toText $ 0 - (if indented then 90 else 20)),
+            Y1_ <<- (toText $ cursorY + (yPos station)),
+            X2_ <<- (toText width),
+            Y2_ <<- (toText $ cursorY + (yPos station)),
+            Stroke_ <<- "#C0C0C0",
+            Stroke_width_ <<- "0.5"
+          ]
+   in mconcat $
+        (P.map legendLine indentedStations)
+          <> P.map legendText indentedStations
 
 -- document root
 svg :: Double -> Double -> Element -> Element
@@ -143,7 +149,7 @@ graphicWithLegendsCached tram outFile color strokeWidth day =
                       XlinkHref_ <<- ("data:image/jpeg;base64," <> encodeBase64 rasterContent)
                     ]
                 )
-                <> (yLegend True 0 diagramWidth (placeOnY diagramHeightFactor 100 $ fromReferenceTrack refTrack) stations)
+                <> (yLegend 0 diagramWidth (placeOnY diagramHeightFactor 100 $ fromReferenceTrack refTrack) stations)
                 <> ( xLegend
                        0
                        (placeOnX diagramWidth)
@@ -209,7 +215,7 @@ plakat =
                   (placeOnX diagramWidth)
                   [(TimeOfDay h m 0) | h <- [0 .. 23], m <- [0]]
               )
-                <> (yLegend True cursorY diagramWidth (placeOnY diagramHeightFactor 100 $ fromReferenceTrack refTrack) stations)
+                <> (yLegend cursorY diagramWidth (placeOnY diagramHeightFactor 100 $ fromReferenceTrack refTrack) stations)
                 <> ( image_
                        [ X_ <<- (toText 0),
                          Y_ <<- (toText cursorY),
@@ -218,7 +224,7 @@ plakat =
                          XlinkHref_ <<- "poster_diagram_" <> tramId <> ".svg.png"
                        ]
                    )
-                <> (tramIdHeading cursorY tramId)
+                -- <> (tramIdHeading cursorY tramId)
                 <> diagrams gap (cursorY + height + gap) rs xs
          in do
               parallel_
