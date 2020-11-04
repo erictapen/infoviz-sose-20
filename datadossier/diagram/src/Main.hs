@@ -194,64 +194,63 @@ tramIdHeading y id =
           ]
 
 plakat :: IO ()
-plakat =
-  let diagramWidth = 530
+plakat = do
+  referenceTracksAndStations <-
+    parallel $
+      P.map (\id -> readReferenceTrackFromFile $ (TS.unpack id) <> ".json") tramIds
+  let trackLengths = P.map trackLength $ P.map fst referenceTracksAndStations
+      totalTrackLength = sum trackLengths
+      diagramHeightFactor = (0.65 * 500) / totalTrackLength
+      diagramWidth = 530
+      gapSize = (0.35 * 500) / (fromIntegral $ P.length trackLengths - 1)
+      heights =
+        P.zip tramIds $
+          (P.map (diagramHeightFactor *) trackLengths)
+      diagrams :: Double -> Double -> [(Text, Double)] -> [(ReferenceTrack, [Station])] -> Element
+      diagrams _ _ [] _ = mempty
+      diagrams gap cursorY ((tramId, height) : rs) ((refTrack, stations) : xs) =
+        ( xLegend
+            cursorY
+            (placeOnX diagramWidth)
+            [(TimeOfDay h m 0) | h <- [0 .. 23], m <- [0]]
+        )
+          <> (yLegend cursorY diagramWidth (placeOnY diagramHeightFactor 100 $ fromReferenceTrack refTrack) stations)
+          <> ( image_
+                 [ X_ <<- (toText 0),
+                   Y_ <<- (toText cursorY),
+                   Width_ <<- (toText diagramWidth),
+                   Height_ <<- (toText height),
+                   XlinkHref_ <<- "poster_diagram_" <> tramId <> ".svg.png"
+                 ]
+             )
+          <> (tramIdHeading cursorY tramId)
+          <> diagrams gap (cursorY + height + gap) rs xs
    in do
-        referenceTracksAndStations <-
-          parallel $
-            P.map (\id -> readReferenceTrackFromFile $ (TS.unpack id) <> ".json") tramIds
-        let trackLengths = P.map trackLength $ P.map fst referenceTracksAndStations
-            totalTrackLength = sum trackLengths
-            diagramHeightFactor = (0.65 * 500) / totalTrackLength
-            gapSize = (0.35 * 500) / (fromIntegral $ P.length trackLengths - 1)
-            heights =
-              P.zip tramIds $
-                (P.map (diagramHeightFactor *) trackLengths)
-            diagrams :: Double -> Double -> [(Text, Double)] -> [(ReferenceTrack, [Station])] -> Element
-            diagrams _ _ [] _ = mempty
-            diagrams gap cursorY ((tramId, height) : rs) ((refTrack, stations) : xs) =
-              ( xLegend
-                  cursorY
-                  (placeOnX diagramWidth)
-                  [(TimeOfDay h m 0) | h <- [0 .. 23], m <- [0]]
-              )
-                <> (yLegend cursorY diagramWidth (placeOnY diagramHeightFactor 100 $ fromReferenceTrack refTrack) stations)
-                <> ( image_
-                       [ X_ <<- (toText 0),
-                         Y_ <<- (toText cursorY),
-                         Width_ <<- (toText diagramWidth),
-                         Height_ <<- (toText height),
-                         XlinkHref_ <<- "poster_diagram_" <> tramId <> ".svg.png"
-                       ]
-                   )
-                <> (tramIdHeading cursorY tramId)
-                <> diagrams gap (cursorY + height + gap) rs xs
-         in do
-              parallel_
-                $ P.map
-                  ( \(tram, rt) ->
-                      diagramCached
-                        ( Diagram
-                            tram
-                            ("./cache/poster_diagram_" <> (TS.unpack tram) <> ".svg")
-                            diagramWidth
-                            diagramHeightFactor
-                            "#cccccc"
-                            Nothing
-                            rt
-                            Nothing
-                        )
+        parallel_
+          $ P.map
+            ( \(tram, rt) ->
+                diagramCached
+                  ( Diagram
+                      tram
+                      ("./cache/poster_diagram_" <> (TS.unpack tram) <> ".svg")
+                      diagramWidth
+                      diagramHeightFactor
+                      "#cccccc"
+                      Nothing
+                      rt
+                      Nothing
                   )
-                $ P.zip tramIds
-                $ P.map fst referenceTracksAndStations
-              P.writeFile
-                "./cache/plakat.svg"
-                $ P.show
-                $ svg 594 841
-                $ g_
-                  [ Transform_ <<- translate 270 35
-                  ]
-                $ diagrams gapSize 0 heights referenceTracksAndStations
+            )
+          $ P.zip tramIds
+          $ P.map fst referenceTracksAndStations
+        P.writeFile
+          "./cache/plakat.svg"
+          $ P.show
+          $ svg 594 841
+          $ g_
+            [ Transform_ <<- translate 270 35
+            ]
+          $ diagrams gapSize 0 heights referenceTracksAndStations
 
 main :: IO ()
 main = do
