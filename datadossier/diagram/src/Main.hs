@@ -58,7 +58,7 @@ xLegend height fx times =
 
 yLegend :: Double -> Double -> (GeoCoord -> Maybe Double) -> [(Text, GeoCoord)] -> Element
 yLegend cursorY width fy stations =
-  let indentedStations = P.zip stations $ cycle [True, False]
+  let indentedStations = P.zip stations $ cycle [False, True]
       yPos (label, coord) =
         maybe
           ( error $
@@ -73,7 +73,7 @@ yLegend cursorY width fy stations =
       legendText :: ((Text, GeoCoord), Bool) -> Element
       legendText (station@(label, _), indented) =
         ( text_
-            [ X_ <<- (toText (- 3 - (if indented then 90 else 20))),
+            [ X_ <<- (toText (- 3 - (if indented then 105 else 20))),
               Y_ <<- (toText (cursorY + (yPos station) + 1)),
               Font_family_ <<- "Fira Sans",
               Text_anchor_ <<- "end",
@@ -85,7 +85,7 @@ yLegend cursorY width fy stations =
       legendLine :: ((Text, GeoCoord), Bool) -> Element
       legendLine (station, indented) =
         line_
-          [ X1_ <<- (toText $ 0 - (if indented then 90 else 20)),
+          [ X1_ <<- (toText $ 0 - (if indented then 105 else 20)),
             Y1_ <<- (toText $ cursorY + (yPos station)),
             X2_ <<- (toText width),
             Y2_ <<- (toText $ cursorY + (yPos station)),
@@ -224,7 +224,7 @@ plakat =
                          XlinkHref_ <<- "poster_diagram_" <> tramId <> ".svg.png"
                        ]
                    )
-                -- <> (tramIdHeading cursorY tramId)
+                <> (tramIdHeading cursorY tramId)
                 <> diagrams gap (cursorY + height + gap) rs xs
          in do
               parallel_
