@@ -73,7 +73,7 @@ yLegend cursorY width fy stations =
       legendText :: (Station, Bool) -> Element
       legendText (station@(label, _), indented) =
         ( text_
-            [ X_ <<- (toText (- 3 - (if indented then 105 else 20))),
+            [ X_ <<- (toText (- 3 - (if indented then 85 else 20))),
               Y_ <<- (toText (cursorY + (yPos station) + 1)),
               Font_family_ <<- "Fira Sans",
               Text_anchor_ <<- "end",
@@ -85,7 +85,7 @@ yLegend cursorY width fy stations =
       legendLine :: (Station, Bool) -> Element
       legendLine (station, indented) =
         line_
-          [ X1_ <<- (toText $ 0 - (if indented then 105 else 20)),
+          [ X1_ <<- (toText $ 0 - (if indented then 85 else 20)),
             Y1_ <<- (toText $ cursorY + (yPos station)),
             X2_ <<- (toText width),
             Y2_ <<- (toText $ cursorY + (yPos station)),
@@ -172,7 +172,7 @@ tramIdHeading :: Double -> Text -> Element
 tramIdHeading y id =
   let fontSize = 36
    in ( text_
-          [ X_ <<- (toText $ -200),
+          [ X_ <<- (toText $ -180),
             Y_ <<- (toText $ y + fontSize),
             Font_family_ <<- "Fira Sans",
             Font_weight_ <<- "Bold",
@@ -183,7 +183,7 @@ tramIdHeading y id =
           $ toElement id
       )
         <> rect_
-          [ X_ <<- (toText $ -200 - 0.5 * 1.38 * fontSize),
+          [ X_ <<- (toText $ -180 - 0.5 * 1.38 * fontSize),
             Y_ <<- (toText $ y + 0 * fontSize),
             Height_ <<- (toText $ 1.20 * fontSize),
             Width_ <<- (toText $ 1.38 * fontSize),
@@ -249,7 +249,7 @@ plakat =
                 $ P.show
                 $ svg 594 841
                 $ g_
-                  [ Transform_ <<- translate 270 55
+                  [ Transform_ <<- translate 270 35
                   ]
                 $ diagrams gapSize 0 heights referenceTracksAndStations
 

@@ -70,6 +70,12 @@ completeReferenceTrack rt@(ReferenceTrackJson label coordinates stations)
           (bisamkiezToPdEBF ++ (P.drop 2 stations))
   | otherwise = rt
 
+-- | Some station names are just too long...
+shortenStationName :: Station -> Station
+shortenStationName (label, coord) = case label of
+  "Eduard-Claudius-Straße/Heinrich-Mann-Allee" -> ("E.-Claudius-Str./H.-Mann-Allee", coord)
+  otherwise -> (label, coord)
+
 -- | This returns the distance a tram has traveled, starting from the start of the track, in meters.
 -- Shouldn't be < 0 or longer than the track, but I'm not sure!
 locateCoordOnTrackLength :: Double -> KdTree TrackPoint -> GeoCoord -> Maybe Double
@@ -98,5 +104,8 @@ readReferenceTrackFromFile f = do
   case (Aeson.eitherDecode fileContent) of
     (Right res) ->
       let completedRes = completeReferenceTrack res
-       in return (enrichTrackWithLength 0 $ coordinates completedRes, stations completedRes)
+       in return
+            ( enrichTrackWithLength 0 $ coordinates completedRes,
+              P.map shortenStationName $ stations completedRes
+            )
     (Left err) -> error "Can't deserialise Referencetrack."
