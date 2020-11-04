@@ -149,7 +149,13 @@ graphicWithLegendsCached tram outFile color strokeWidth day =
                       XlinkHref_ <<- ("data:image/jpeg;base64," <> encodeBase64 rasterContent)
                     ]
                 )
-                <> (yLegend 0 diagramWidth (placeOnY diagramHeightFactor 100 $ fromReferenceTrack refTrack) stations)
+                <> ( yLegend
+                       0
+                       -- Nothing happens after 2am, so no needs to draw lines
+                       (placeOnX diagramWidth $ TimeOfDay 2 0 0)
+                       (placeOnY diagramHeightFactor 100 $ fromReferenceTrack refTrack)
+                       stations
+                   )
                 <> ( xLegend
                        0
                        (placeOnX diagramWidth)
@@ -200,7 +206,7 @@ plakat = do
       P.map (\id -> readReferenceTrackFromFile $ (TS.unpack id) <> ".json") tramIds
   let trackLengths = P.map trackLength $ P.map fst referenceTracksAndStations
       totalTrackLength = sum trackLengths
-      diagramWidth = 660
+      diagramWidth = 690
       diagramHeight = 250
       diagramHeightFactor = (0.65 * diagramHeight) / totalTrackLength
       gapSize = (0.35 * diagramHeight) / (fromIntegral $ P.length trackLengths - 1)
@@ -215,13 +221,26 @@ plakat = do
             (placeOnX diagramWidth)
             [(TimeOfDay h m 0) | h <- [0 .. 23], m <- [0]]
         )
-          <> (yLegend cursorY diagramWidth (placeOnY diagramHeightFactor 100 $ fromReferenceTrack refTrack) stations)
+          <> ( yLegend
+                 cursorY
+                 -- Nothing happens after 2am, so no needs to draw lines
+                 (placeOnX diagramWidth $ TimeOfDay 2 0 0)
+                 (placeOnY diagramHeightFactor 100 $ fromReferenceTrack refTrack)
+                 stations
+             )
           <> ( image_
                  [ X_ <<- (toText 0),
                    Y_ <<- (toText cursorY),
                    Width_ <<- (toText diagramWidth),
                    Height_ <<- (toText height),
-                   XlinkHref_ <<- "poster_diagram_" <> tramId <> ".svg.png"
+                   XlinkHref_
+                     <<- ( "poster_diagram_" <> tramId
+                             <> "_"
+                             <> (TS.pack $ show diagramWidth)
+                             <> "x"
+                             <> (TS.pack $ show diagramHeight)
+                             <> ".svg.png"
+                         )
                  ]
              )
           <> (tramIdHeading cursorY tramId)
@@ -233,7 +252,14 @@ plakat = do
                 diagramCached
                   ( Diagram
                       tram
-                      ("./cache/poster_diagram_" <> (TS.unpack tram) <> ".svg")
+                      ( "./cache/poster_diagram_"
+                          <> (TS.unpack tram)
+                          <> "_"
+                          <> (show diagramWidth)
+                          <> "x"
+                          <> (show diagramHeight)
+                          <> ".svg"
+                      )
                       diagramWidth
                       diagramHeightFactor
                       "#cccccc"
