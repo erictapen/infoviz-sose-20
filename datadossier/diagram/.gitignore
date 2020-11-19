@@ -1,0 +1,7 @@
+*.o
+*.hi
+Main
+*.prof
+*.svg
+*.pdf
+raw/
