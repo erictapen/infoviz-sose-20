@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2020 Justin Humm <mail@erictapen.name>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 # This file originates from node2nix
 
 {stdenv, nodejs, python2, utillinux, libtool, runCommand, writeTextFile}:

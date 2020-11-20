@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2020 Justin Humm <mail@erictapen.name>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 'use strict'
 
 const createHafas = require('vbb-hafas')

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2020 Justin Humm <mail@erictapen.name>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 {
   description = "A very basic flake";
 
@@ -179,6 +183,7 @@
               imagemagick
 
               qgis
+              reuse
             ] ++ (
               let
                 rustUnstable = (pkgs.rustChannelOf {

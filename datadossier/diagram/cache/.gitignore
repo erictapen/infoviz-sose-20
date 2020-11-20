@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2020 Justin Humm <mail@erictapen.name>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 *.jpeg
 *.png
 *.svg
@@ -9,4 +13,3 @@
 !all_days-filter96.json
 !all_days-filter98.json
 !all_days-filter99.json
-

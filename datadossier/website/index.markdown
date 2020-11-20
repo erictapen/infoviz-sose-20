@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2020 Justin Humm <mail@erictapen.name>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
 # Tram delays in Potsdam
 
 In this datadossier I originally wanted to use geo data from trams in Potsdam, Germany, to visualize their delay characteristics. Unfortunately I made a big mistake in the process; I misinterpreted the nature of my data entirely. When I worked on this over the past months I repeatedly saw hints to my mistake, but I failed to fully acknowledge them, until two days before the deadline. So this is more a story about bad data interpretation and not so much one about tram delays, but of course it is also about tram delays.
@@ -349,4 +355,3 @@ In the end I'd say that this attempt still was a success. The delay information 
   <div id="scroll-diagram"><img style="height: 30em" src="images/all_days_blended_96.svg"/>
   </div>
 </div>
-
