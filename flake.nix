@@ -6,10 +6,7 @@
   description = "A very basic flake";
 
   inputs = {
-    nixpkgs-mozilla = {
-      url = "github:mozilla/nixpkgs-mozilla";
-      flake = false;
-    };
+    nixpkgs.url = "github:NixOS/Nixpkgs/nixos-unstable-small";
     naersk.url = "github:nmattia/naersk";
     osm-dump = {
       type = "git";
@@ -18,7 +15,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-mozilla, naersk, osm-dump }:
+  outputs = { self, nixpkgs, naersk, osm-dump }:
     let
       forAllSystems = f: nixpkgs.lib.genAttrs
         [ "x86_64-linux" "i686-linux" "aarch64-linux" ]
@@ -27,7 +24,7 @@
         system:
         import nixpkgs {
           inherit system;
-          overlays = [ (import nixpkgs-mozilla) ];
+          config.allowBroken = true;
         }
       );
     in
@@ -56,13 +53,7 @@
             '';
           build-reference-tracks =
             let
-              naerskP = pkgs.callPackage naersk {
-                rustc = (pkgs.rustChannelOf {
-                  date = "2020-10-10";
-                  channel = "nightly";
-                  sha256 = "sha256-PLdvfPsf813gJu5UbcQv9+6zig3KZOvJHw0ZF1xvWoU=";
-                }).rust;
-              };
+              naerskP = pkgs.callPackage naersk { };
             in
             naerskP.buildPackage {
               src = ./datadossier/reference-tracks;
@@ -182,21 +173,13 @@
               inkscape
               imagemagick
 
+              # datadossier/reference-tracks
+              cargo
+              rustc
+
               qgis
-              reuse
-            ] ++ (
-              let
-                rustUnstable = (pkgs.rustChannelOf {
-                  date = "2020-10-10";
-                  channel = "nightly";
-                  sha256 = "sha256-PLdvfPsf813gJu5UbcQv9+6zig3KZOvJHw0ZF1xvWoU=";
-                });
-              in
-              [
-                rustUnstable.cargo
-                rustUnstable.rust
-              ]
-            );
+              # reuse
+            ];
           });
 
       defaultPackage = forAllSystems (system: self.packages.${system}.datadossier-website);

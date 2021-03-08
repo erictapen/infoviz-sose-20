@@ -5,11 +5,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1602173141,
-        "narHash": "sha256-m6wU6lP0wf2OMw3KtJqn27ITtg29+ftciGHicLiVSGE=",
+        "lastModified": 1614785451,
+        "narHash": "sha256-TPw8kQvr2UNCuvndtY+EjyXp6Q5GEW2l9UafXXh1XmI=",
         "owner": "nmattia",
         "repo": "naersk",
-        "rev": "22b96210b2433228d42bce460f3befbdcfde7520",
+        "rev": "e0fe990b478a66178a58c69cf53daec0478ca6f9",
         "type": "github"
       },
       "original": {
@@ -20,48 +20,33 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1600034641,
-        "narHash": "sha256-+3bd2q7thy0PVNmPJPsMcOGznOyW6Am2Iv4INU1V9QI=",
-        "ref": "custom-20.03",
-        "rev": "f731c43976aab30ea7d0a036d415c69d02a2bf44",
-        "revCount": 215874,
+        "lastModified": 1615115315,
+        "narHash": "sha256-0UcfqGYTGCpozZPeUR2lFD/Pl4Uzz9Xihjg+yktnb+4=",
+        "ref": "custom-20.09",
+        "rev": "bd4e70918cb6a5d69029e1038f5e415356eb8aa0",
+        "revCount": 246168,
         "type": "git",
-        "url": "file:///home/justin/nixpkgs"
+        "url": "file:///home/kerstin/nixpkgs"
       },
       "original": {
         "id": "nixpkgs",
         "type": "indirect"
-      }
-    },
-    "nixpkgs-mozilla": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1601371715,
-        "narHash": "sha256-AXHx65D9BZpwNBgameXRfpiGNQpHNB1jc0jKoL2EkFE=",
-        "owner": "mozilla",
-        "repo": "nixpkgs-mozilla",
-        "rev": "57c8084c7ef41366993909c20491e359bbb90f54",
-        "type": "github"
-      },
-      "original": {
-        "owner": "mozilla",
-        "repo": "nixpkgs-mozilla",
-        "type": "github"
       }
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1600034641,
-        "narHash": "sha256-+3bd2q7thy0PVNmPJPsMcOGznOyW6Am2Iv4INU1V9QI=",
-        "ref": "custom-20.03",
-        "rev": "f731c43976aab30ea7d0a036d415c69d02a2bf44",
-        "revCount": 215874,
-        "type": "git",
-        "url": "file:///home/justin/nixpkgs"
+        "lastModified": 1615190638,
+        "narHash": "sha256-tMxEgkf1boXafAqXx4W/KBzRybwwPBNImaNVA7F+JaA=",
+        "owner": "NixOS",
+        "repo": "Nixpkgs",
+        "rev": "1005b14672de04c6f46ca8a9a9c423fa358b7142",
+        "type": "github"
       },
       "original": {
-        "id": "nixpkgs",
-        "type": "indirect"
+        "owner": "NixOS",
+        "ref": "nixos-unstable-small",
+        "repo": "Nixpkgs",
+        "type": "github"
       }
     },
     "osm-dump": {
@@ -84,7 +69,6 @@
       "inputs": {
         "naersk": "naersk",
         "nixpkgs": "nixpkgs_2",
-        "nixpkgs-mozilla": "nixpkgs-mozilla",
         "osm-dump": "osm-dump"
       }
     }
