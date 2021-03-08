@@ -1,39 +1,6 @@
 {
   "nodes": {
-    "naersk": {
-      "inputs": {
-        "nixpkgs": "nixpkgs"
-      },
-      "locked": {
-        "lastModified": 1614785451,
-        "narHash": "sha256-TPw8kQvr2UNCuvndtY+EjyXp6Q5GEW2l9UafXXh1XmI=",
-        "owner": "nmattia",
-        "repo": "naersk",
-        "rev": "e0fe990b478a66178a58c69cf53daec0478ca6f9",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nmattia",
-        "repo": "naersk",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
-      "locked": {
-        "lastModified": 1615115315,
-        "narHash": "sha256-0UcfqGYTGCpozZPeUR2lFD/Pl4Uzz9Xihjg+yktnb+4=",
-        "ref": "custom-20.09",
-        "rev": "bd4e70918cb6a5d69029e1038f5e415356eb8aa0",
-        "revCount": 246168,
-        "type": "git",
-        "url": "file:///home/kerstin/nixpkgs"
-      },
-      "original": {
-        "id": "nixpkgs",
-        "type": "indirect"
-      }
-    },
-    "nixpkgs_2": {
       "locked": {
         "lastModified": 1615190638,
         "narHash": "sha256-tMxEgkf1boXafAqXx4W/KBzRybwwPBNImaNVA7F+JaA=",
@@ -67,8 +34,7 @@
     },
     "root": {
       "inputs": {
-        "naersk": "naersk",
-        "nixpkgs": "nixpkgs_2",
+        "nixpkgs": "nixpkgs",
         "osm-dump": "osm-dump"
       }
     }

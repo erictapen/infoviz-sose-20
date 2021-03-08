@@ -7,7 +7,6 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/Nixpkgs/nixos-unstable-small";
-    naersk.url = "github:nmattia/naersk";
     osm-dump = {
       type = "git";
       url = "file:///home/justin/fh/ss-20/infoviz/datadossier/reference-tracks/raw/";
@@ -15,7 +14,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, naersk, osm-dump }:
+  outputs = { self, nixpkgs, osm-dump }:
     let
       forAllSystems = f: nixpkgs.lib.genAttrs
         [ "x86_64-linux" "i686-linux" "aarch64-linux" ]
@@ -53,14 +52,9 @@
             '';
           build-reference-tracks =
             let
-              naerskP = pkgs.callPackage naersk { };
+              crates = import ./datadossier/reference-tracks/Cargo.nix { inherit pkgs; };
             in
-            naerskP.buildPackage {
-              src = ./datadossier/reference-tracks;
-              buildInputs = with pkgs; [
-                zlib
-              ];
-            };
+            crates.workspaceMembers.build-reference-tracks.build;
           reference-tracks = pkgs.runCommand "reference-tracks" { } ''
             mkdir -p $out
             ${build-reference-tracks}/bin/build-reference-tracks \
@@ -176,6 +170,7 @@
               # datadossier/reference-tracks
               cargo
               rustc
+              crate2nix
 
               qgis
               # reuse
