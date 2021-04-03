@@ -98,7 +98,7 @@
 
             installPhase = ''
               mkdir -p $out
-              mv *.svg cache/*.svg cache/*.jpeg $out/
+              mv *.svg cache/*.svg cache/*.png cache/*.jpeg $out/
             '';
           };
           datadossier-website =
