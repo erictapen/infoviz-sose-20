@@ -1,7 +1,6 @@
 -- SPDX-FileCopyrightText: 2020 Kerstin Humm <mail@erictapen.name>
 --
 -- SPDX-License-Identifier: GPL-3.0-or-later
-
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -100,24 +99,24 @@ allDays =
 -- | Show a line as an CSV table, just a helper function I'll not use often.
 printCSV :: Line -> String
 printCSV (Line _ trips) =
-  (++) "id, time, lat, lon\n"
-    $ Data.List.Utils.join "\n"
-    $ P.concat
-    $ P.map
-      ( \(tripId, ds) ->
-          P.map
-            ( \(t, c) ->
-                (P.show tripId)
-                  ++ ","
-                  ++ (P.show t)
-                  ++ ","
-                  ++ (P.show $ fst c)
-                  ++ ","
-                  ++ (P.show $ snd c)
-            )
-            ds
-      )
-      trips
+  (++) "id, time, lat, lon\n" $
+    Data.List.Utils.join "\n" $
+      P.concat $
+        P.map
+          ( \(tripId, ds) ->
+              P.map
+                ( \(t, c) ->
+                    (P.show tripId)
+                      ++ ","
+                      ++ (P.show t)
+                      ++ ","
+                      ++ (P.show $ fst c)
+                      ++ ","
+                      ++ (P.show $ snd c)
+                )
+                ds
+          )
+          trips
 
 -- | This is messy. We take the part of the filename containing the timestamp,
 -- encode it to a JSON string and then decode it, as Aeson can parse a
@@ -166,10 +165,10 @@ transformVehicles vehicles =
       -- buckets are sorted.
       mapByTripId :: [(TripId, [(LocalTime, GeoCoord)])]
       mapByTripId =
-        IntMap.toList
-          $ IntMap.map (sortBy compareTimeStamp)
-          $ fromListWith (++)
-          $ P.map transformDatapoint vehicles
+        IntMap.toList $
+          IntMap.map (sortBy compareTimeStamp) $
+            fromListWith (++) $
+              P.map transformDatapoint vehicles
       -- Split the "trips" along a splitPredicate. Whenever splitPredicate is
       -- true for two data points, they should not be connected in the final
       -- result.
@@ -198,13 +197,12 @@ filterTram tram = Filter ("filter" <> tram) $ \v -> tramId v == tram
 -- | The deserialization of the per vehicle object from the HAFAS JSON.
 -- Unfortunately we can't really store the timestamp in the structure, as it is
 -- not part of the JSON, so we have to carry it separately..
-data Vehicle
-  = Vehicle
-      { tramId :: Text,
-        latitude :: Geospatial.Latitude,
-        longitude :: Geospatial.Longitude,
-        trip :: Int
-      }
+data Vehicle = Vehicle
+  { tramId :: Text,
+    latitude :: Geospatial.Latitude,
+    longitude :: Geospatial.Longitude,
+    trip :: Int
+  }
   deriving (Show)
 
 -- | Vehicle is directly derived from the JSON data.
@@ -287,14 +285,14 @@ getAllVehiclesCached day filter@(Filter filterName vehicleFilter) =
                 return $ Line "" []
           else do
             TSIO.putStrLn $ "Cache miss: " <> cacheName
-            rawRes <- sequence
-              $ P.map
+            rawRes <- sequence $
+              P.map
                 ( \day -> do
                     getAllVehicles day filter
                 )
-              $ case day of
-                Just d -> [d]
-                Nothing -> allDays
+                $ case day of
+                  Just d -> [d]
+                  Nothing -> allDays
             let res = transformVehicles $ mconcat rawRes
              in do
                   BL.writeFile cachePath $ Aeson.encode $ toCache res

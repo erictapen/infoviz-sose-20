@@ -1,7 +1,6 @@
 -- SPDX-FileCopyrightText: 2020 Kerstin Humm <mail@erictapen.name>
 --
 -- SPDX-License-Identifier: GPL-3.0-or-later
-
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -31,12 +30,11 @@ import Prelude as P
 
 type ReferenceTrack = [(Meter, GeoCoord)]
 
-data ReferenceTrackJson
-  = ReferenceTrackJson
-      { label :: Text,
-        coordinates :: [GeoCoord],
-        stations :: [Station]
-      }
+data ReferenceTrackJson = ReferenceTrackJson
+  { label :: Text,
+    coordinates :: [GeoCoord],
+    stations :: [Station]
+  }
   deriving (Generic, Show)
 
 instance FromJSON ReferenceTrackJson

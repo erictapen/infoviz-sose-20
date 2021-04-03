@@ -1,7 +1,6 @@
 -- SPDX-FileCopyrightText: 2020 Kerstin Humm <mail@erictapen.name>
 --
 -- SPDX-License-Identifier: GPL-3.0-or-later
-
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -121,15 +120,15 @@ diagram (Diagram _ _ width heightFactor color strokeWidth refTrack _) (Hafas.Lin
       refTrackTree = fromReferenceTrack refTrack
    in svg width (toText $ heightFactor * trackLength refTrack) $
         (style_ [] "path { mix-blend-mode: multiply; }")
-          <> ( P.mconcat
-                 $ P.map
+          <> ( P.mconcat $
+                 P.map
                    ( tripToElement
                        color
                        (fromMaybe (width / (60 * 24)) strokeWidth)
                        (placeOnX width . localTimeOfDay)
                        (placeOnY heightFactor 10 refTrackTree)
                    )
-                 $ trips
+                   $ trips
              )
 
 -- | Effectful and caching version of diagram.
