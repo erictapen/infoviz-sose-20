@@ -63,7 +63,7 @@ xLegend height fx times =
 yLegend :: Double -> Double -> (GeoCoord -> Maybe Double) -> [Station] -> Element
 yLegend cursorY width fy stations =
   let indentedStations = P.zip stations $ cycle [False, True]
-      yPos (label, coord) =
+      fy' (label, coord) =
         maybe
           ( error $
               "Failed to map station "
@@ -74,11 +74,14 @@ yLegend cursorY width fy stations =
           )
           id
           $ fy coord
+      -- The text with the station. Alternates between indented and not
+      -- indented, as we don't have enough space to fit everything into one
+      -- column.
       legendText :: (Station, Bool) -> Element
       legendText (station@(label, _), indented) =
         ( text_
-            [ X_ <<- (toText (- 3 - (if indented then 40 else 10))),
-              Y_ <<- (toText (cursorY + (yPos station) + 1)),
+            [ X_ <<- (toText (- 3 - (if indented then 10 else 40))),
+              Y_ <<- (toText (cursorY + (fy' station) + 1)),
               Font_family_ <<- "Fira Sans",
               Text_anchor_ <<- "end",
               Style_ <<- "text-align: end;",
@@ -86,13 +89,15 @@ yLegend cursorY width fy stations =
             ]
             $ toElement label
         )
+      -- The line that stretches through the whole diagram, signifying in which
+      -- point of space the station is passed.
       legendLine :: (Station, Bool) -> Element
       legendLine (station, indented) =
         line_
           [ X1_ <<- (toText $ 0 - (if indented then 40 else 10)),
-            Y1_ <<- (toText $ cursorY + (yPos station)),
+            Y1_ <<- (toText $ cursorY + (fy' station)),
             X2_ <<- (toText width),
-            Y2_ <<- (toText $ cursorY + (yPos station)),
+            Y2_ <<- (toText $ cursorY + (fy' station)),
             Stroke_ <<- "#C0C0C0",
             Stroke_width_ <<- "0.2"
           ]
@@ -129,7 +134,7 @@ graphicWithLegendsCached tram outFile color strokeWidth day =
             rasterContent <- BS.readFile $ diagramPath <> ".jpeg"
             P.writeFile cachePath $
               P.show $
-                svg (40 + 40 + trackLength refTrack) (diagramWidth + 100 + 20 + 20) $
+                svg (40 + 40 + (0.01 * trackLength refTrack)) (diagramWidth + 100 + 20 + 20) $
                   g_
                     [ Transform_ <<- translate 100 20
                     ]
@@ -137,7 +142,7 @@ graphicWithLegendsCached tram outFile color strokeWidth day =
                           [ X_ <<- (toText 0),
                             Y_ <<- (toText 0),
                             Width_ <<- (toText diagramWidth),
-                            Height_ <<- (toText $ trackLength refTrack),
+                            Height_ <<- (toText $ 0.01 * trackLength refTrack),
                             XlinkHref_ <<- ("data:image/jpeg;base64," <> encodeBase64 rasterContent)
                           ]
                       )

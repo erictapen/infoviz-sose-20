@@ -20,4 +20,3 @@ svg height width content =
         Width_ <<- (toText width <> "mm"),
         ViewBox_ <<- "0 0 " <> (toText width) <> " " <> (toText height)
       ]
-

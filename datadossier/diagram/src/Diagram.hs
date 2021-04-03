@@ -88,7 +88,10 @@ placeOnX width t =
 
 -- | Try to place data on the y-axis. Needs a tolerance value and a ReferenceTrack.
 placeOnY :: Double -> Double -> KdTree TrackPoint -> GeoCoord -> Maybe Double
-placeOnY heightFactor tolerance refTrackTree coord = fmap (heightFactor *) $ locateCoordOnTrackLength tolerance refTrackTree coord
+placeOnY heightFactor tolerance refTrackTree coord =
+  fmap
+    (heightFactor *)
+    $ locateCoordOnTrackLength tolerance refTrackTree coord
 
 -- | Diagram metadata.
 data Diagram
