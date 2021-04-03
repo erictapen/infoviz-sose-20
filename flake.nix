@@ -6,7 +6,7 @@
   description = "A very basic flake";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/Nixpkgs/nixos-unstable-small";
+    nixpkgs.url = "github:NixOS/Nixpkgs/nixos-20.09";
     osm-dump = {
       type = "git";
       url = "file:///home/justin/fh/ss-20/infoviz/datadossier/reference-tracks/raw/";
