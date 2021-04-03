@@ -19,6 +19,7 @@ import Geo
 import Graphics.Svg
 import Hafas
 import ReferenceTrack
+import Svg
 import System.Directory
 import Prelude as P
 
@@ -98,18 +99,6 @@ yLegend cursorY width fy stations =
    in mconcat $
         (P.map legendLine indentedStations)
           <> P.map legendText indentedStations
-
--- document root
-svg :: Double -> Double -> Element -> Element
-svg height width content =
-  doctype
-    <> Graphics.Svg.with
-      (svg11_ content)
-      [ Version_ <<- "1.1",
-        Width_ <<- (toText width <> "mm"),
-        Height_ <<- (toText height <> "mm"),
-        ViewBox_ <<- "0 0 " <> (toText width) <> " " <> (toText height)
-      ]
 
 -- | A graphic is a finished SVG file that can be presented e.g. in the
 -- datadossier. It consists of a diagram and legends of x- and y-axis.

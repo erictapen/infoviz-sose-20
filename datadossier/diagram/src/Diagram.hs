@@ -21,21 +21,10 @@ import Geo
 import Graphics.Svg
 import Hafas
 import ReferenceTrack
+import Svg
 import System.Directory
 import System.Process
 import Prelude as P
-
--- | Construct a SVG document from a height and the content Element.
-svg :: Double -> Text -> Element -> Element
-svg width height content =
-  doctype
-    <> Graphics.Svg.with
-      (svg11_ content)
-      [ Version_ <<- "1.1",
-        Width_ <<- (toText width <> "mm"),
-        Height_ <<- (height <> "mm"),
-        ViewBox_ <<- "0 0 " <> (toText width) <> " " <> height
-      ]
 
 -- | Transforms a [(LocalTime -> Double)] and two placement functions fx, fy to
 -- an SVG Element. Recursively calls tripToElement'.
@@ -118,7 +107,7 @@ diagram :: Diagram -> Hafas.Line -> Element
 diagram (Diagram _ _ width heightFactor color strokeWidth refTrack _) (Hafas.Line _ trips) =
   let refTrackTree :: KdTree TrackPoint
       refTrackTree = fromReferenceTrack refTrack
-   in svg width (toText $ heightFactor * trackLength refTrack) $
+   in svg (heightFactor * trackLength refTrack) width $
         (style_ [] "path { mix-blend-mode: multiply; }")
           <> ( P.mconcat $
                  P.map
