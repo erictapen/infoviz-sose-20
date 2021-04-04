@@ -137,7 +137,7 @@ graphicWithLegendsCached tram outFile color strokeWidth day =
                     width = diagramWidth + 100 + 20 + 20
                  in svg height width $
                       g_
-                        [ Transform_ <<- translate 100 20
+                        [ Transform_ <<- translate 75 20
                         ]
                         $ ( image_
                               [ X_ <<- (toText 0),
