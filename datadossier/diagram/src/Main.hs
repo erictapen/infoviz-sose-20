@@ -64,7 +64,7 @@ yLegend :: Double -> Double -> (GeoCoord -> Maybe Double) -> [Station] -> Elemen
 yLegend cursorY width fy stations =
   let indentedStations = P.zip stations $ cycle [False, True]
       fy' (label, coord) =
-        maybe
+        fromMaybe
           ( error $
               "Failed to map station "
                 <> (TS.unpack label)
@@ -72,7 +72,6 @@ yLegend cursorY width fy stations =
                 <> (P.show coord)
                 <> " to y axis. Maybe increase tolerance?"
           )
-          id
           $ fy coord
       -- The text with the station. Alternates between indented and not
       -- indented, as we don't have enough space to fit everything into one
@@ -134,32 +133,34 @@ graphicWithLegendsCached tram outFile color strokeWidth day =
             rasterContent <- BS.readFile $ diagramPath <> ".jpeg"
             P.writeFile cachePath $
               P.show $
-                svg (40 + 40 + (0.01 * trackLength refTrack)) (diagramWidth + 100 + 20 + 20) $
-                  g_
-                    [ Transform_ <<- translate 100 20
-                    ]
-                    $ ( image_
-                          [ X_ <<- (toText 0),
-                            Y_ <<- (toText 0),
-                            Width_ <<- (toText diagramWidth),
-                            Height_ <<- (toText $ 0.01 * trackLength refTrack),
-                            XlinkHref_ <<- ("data:image/jpeg;base64," <> encodeBase64 rasterContent)
-                          ]
-                      )
-                      <> ( yLegend
-                             0
-                             -- Nothing happens after 2am, so no needs to draw lines
-                             (placeOnX diagramWidth $ TimeOfDay 2 0 0)
-                             ( fmap (diagramHeightFactor *)
-                                 . locateCoordOnTrackLength 100 (fromReferenceTrack refTrack)
+                let height = 40 + 40 + (diagramHeightFactor * trackLength refTrack)
+                    width = diagramWidth + 100 + 20 + 20
+                 in svg height width $
+                      g_
+                        [ Transform_ <<- translate 100 20
+                        ]
+                        $ ( image_
+                              [ X_ <<- (toText 0),
+                                Y_ <<- (toText 0),
+                                Width_ <<- (toText diagramWidth),
+                                Height_ <<- (toText $ diagramHeightFactor * trackLength refTrack),
+                                XlinkHref_ <<- ("data:image/jpeg;base64," <> encodeBase64 rasterContent)
+                              ]
+                          )
+                          <> ( yLegend
+                                 0
+                                 -- Nothing happens after 2am, so no needs to draw lines
+                                 (placeOnX diagramWidth $ TimeOfDay 2 0 0)
+                                 ( fmap (diagramHeightFactor *)
+                                     . locateCoordOnTrackLength 100 (fromReferenceTrack refTrack)
+                                 )
+                                 stations
                              )
-                             stations
-                         )
-                      <> ( xLegend
-                             0
-                             (placeOnX diagramWidth)
-                             [(TimeOfDay h m 0) | h <- [0 .. 23], m <- [0, 10 .. 50]]
-                         )
+                          <> ( xLegend
+                                 0
+                                 (placeOnX diagramWidth)
+                                 [(TimeOfDay h m 0) | h <- [0 .. 23], m <- [0, 10 .. 50]]
+                             )
 
 tramIds :: [Text]
 tramIds =

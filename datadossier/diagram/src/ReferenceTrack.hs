@@ -88,11 +88,13 @@ locateCoordOnTrackLength tolerance refTree coord =
         sortBy compareByPosition $ kNearestNeighbors refTree 2 $ geoToTrackPoint 0 coord
       (TrackPoint firstPoint currentMark) = twoClosestTrackPoints !! 0
       (TrackPoint secondPoint _) = twoClosestTrackPoints !! 1
-   in case mapToTrack tolerance firstPoint secondPoint (geoToPoint coord) of
+      -- The distance travelled in the section formed by the two points, in meters.
+      travelledMetersInSection = mapToTrack tolerance firstPoint secondPoint $ geoToPoint coord
+   in case travelledMetersInSection of
         (Just v) -> Just $ (currentMark + v)
         Nothing -> Nothing
 
--- | Put the current kilometre mark on the track. Needs a starting Meter, as it
+-- | Put the current kilometer mark on the track. Needs a starting Meter, as it
 -- operates recursviely.
 enrichTrackWithLength :: Meter -> [GeoCoord] -> ReferenceTrack
 enrichTrackWithLength _ [] = []
