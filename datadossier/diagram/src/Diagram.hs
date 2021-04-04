@@ -7,7 +7,6 @@
 
 module Diagram
   ( placeOnX,
-    placeOnY,
     diagramCached,
     Diagram (Diagram),
   )
@@ -86,13 +85,6 @@ placeOnX width t =
           else sec - (3600 * 3)
    in warpedSeconds * (width / (3600 * 24))
 
--- | Try to place data on the y-axis. Needs a tolerance value and a ReferenceTrack.
-placeOnY :: Double -> Double -> KdTree TrackPoint -> GeoCoord -> Maybe Double
-placeOnY heightFactor tolerance refTrackTree coord =
-  fmap
-    (heightFactor *)
-    $ locateCoordOnTrackLength tolerance refTrackTree coord
-
 -- | Diagram metadata.
 data Diagram
   = Diagram
@@ -118,7 +110,7 @@ diagram (Diagram _ _ width heightFactor color strokeWidth refTrack _) (Hafas.Lin
                        color
                        (fromMaybe (width / (60 * 24)) strokeWidth)
                        (placeOnX width . localTimeOfDay)
-                       (placeOnY heightFactor 10 refTrackTree)
+                       (fmap (heightFactor *) . locateCoordOnTrackLength 10 refTrackTree)
                    )
                    $ trips
              )

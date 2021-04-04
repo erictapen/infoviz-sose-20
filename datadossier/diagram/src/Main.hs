@@ -150,7 +150,9 @@ graphicWithLegendsCached tram outFile color strokeWidth day =
                              0
                              -- Nothing happens after 2am, so no needs to draw lines
                              (placeOnX diagramWidth $ TimeOfDay 2 0 0)
-                             (placeOnY diagramHeightFactor 100 $ fromReferenceTrack refTrack)
+                             ( fmap (diagramHeightFactor *)
+                                 . locateCoordOnTrackLength 100 (fromReferenceTrack refTrack)
+                             )
                              stations
                          )
                       <> ( xLegend
@@ -222,7 +224,9 @@ plakat = do
                  cursorY
                  -- Nothing happens after 2am, so no needs to draw lines
                  (placeOnX diagramWidth $ TimeOfDay 2 0 0)
-                 (placeOnY diagramHeightFactor 100 $ fromReferenceTrack refTrack)
+                 ( fmap (diagramHeightFactor *)
+                     . locateCoordOnTrackLength 100 (fromReferenceTrack refTrack)
+                 )
                  stations
              )
           <> ( image_
