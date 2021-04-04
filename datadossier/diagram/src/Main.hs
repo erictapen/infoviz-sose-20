@@ -133,7 +133,7 @@ graphicWithLegendsCached tram outFile color strokeWidth day =
             rasterContent <- BS.readFile $ diagramPath <> ".jpeg"
             P.writeFile cachePath $
               P.show $
-                let height = 40 + 40 + (diagramHeightFactor * trackLength refTrack)
+                let height = 40 + (diagramHeightFactor * trackLength refTrack)
                     width = diagramWidth + 100 + 20 + 20
                  in svg height width $
                       g_
