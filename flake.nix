@@ -6,10 +6,10 @@
   description = "A very basic flake";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/Nixpkgs/nixos-20.09";
+    nixpkgs.url = "github:NixOS/Nixpkgs/nixos-21.05";
     osm-dump = {
       type = "git";
-      url = "file:///home/justin/fh/ss-20/infoviz/datadossier/reference-tracks/raw/";
+      url = "file:///home/kerstin/fh/ss-20/infoviz/datadossier/reference-tracks/raw/";
       flake = false;
     };
   };

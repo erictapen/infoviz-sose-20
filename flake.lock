@@ -2,16 +2,16 @@
   "nodes": {
     "nixpkgs": {
       "locked": {
-        "lastModified": 1617397712,
-        "narHash": "sha256-00FNgi8Lg9pe7ZSCMhdjS+tPhfJ6Uyx+CHKy7pUtNnM=",
+        "lastModified": 1625176478,
+        "narHash": "sha256-s1RTYNKw7ySyqrZjns9Cq+Nnjpp75ePgL06pgcbIpoA=",
         "owner": "NixOS",
         "repo": "Nixpkgs",
-        "rev": "42a03e4728fc05cb9f123057670e41967f628360",
+        "rev": "21b696caf392ad6fa513caf3327d0aa0430ffb72",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
-        "ref": "nixos-20.09",
+        "ref": "nixos-21.05",
         "repo": "Nixpkgs",
         "type": "github"
       }
@@ -25,11 +25,11 @@
         "rev": "38b239766e74f61bce433714d102ddcaabb1f60f",
         "revCount": 1,
         "type": "git",
-        "url": "file:///home/justin/fh/ss-20/infoviz/datadossier/reference-tracks/raw/"
+        "url": "file:///home/kerstin/fh/ss-20/infoviz/datadossier/reference-tracks/raw/"
       },
       "original": {
         "type": "git",
-        "url": "file:///home/justin/fh/ss-20/infoviz/datadossier/reference-tracks/raw/"
+        "url": "file:///home/kerstin/fh/ss-20/infoviz/datadossier/reference-tracks/raw/"
       }
     },
     "root": {
