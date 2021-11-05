@@ -166,6 +166,7 @@
               zlib
               inkscape
               imagemagick
+              haskellPackages.hlint
 
               # datadossier/reference-tracks
               cargo
