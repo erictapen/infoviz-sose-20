@@ -2,7 +2,13 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-{ config, pkgs, lib, ... }: {
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
+{
   systemd = {
     timers.vbb-crawler = {
       description = "VBB-Crawler";
@@ -29,6 +35,5 @@
   systemd.tmpfiles.rules = [
     "d '/var/lib/vbb-crawler' - root root - -"
   ];
-
 
 }

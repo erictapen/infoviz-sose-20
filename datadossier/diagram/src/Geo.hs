@@ -80,6 +80,6 @@ mapToTrack tolerance a b c =
       res = (abx * acx + aby * acy + abz * acz) / abLength
    in -- We only accpt the mapping if it is on the track segment or at least
       -- within a specified amount of meters of it.
-      if (- tolerance) <= res && res <= (abLength + tolerance)
+      if (-tolerance) <= res && res <= (abLength + tolerance)
         then Just res
         else Nothing

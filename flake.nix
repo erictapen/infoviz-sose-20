@@ -207,12 +207,13 @@
         pre-commit-check = inputs.pre-commit-hooks.lib.${system}.run {
           src = ./.;
           hooks = {
-            # nixfmt.enable = true;
-            # deadnix.enable = true;
-            # rustfmt.enable = true;
-            # ormulu.enable = true;
+            nixfmt.enable = true;
+            rustfmt = {
+              enable = true;
+              settings.manifest-path = "datadossier/reference-tracks/Cargo.toml";
+            };
+            ormolu.enable = true;
             # hlint.enable = true;
-            # denofmt.enable = true;
           };
         };
       });

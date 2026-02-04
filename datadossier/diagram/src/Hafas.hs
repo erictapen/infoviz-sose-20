@@ -285,14 +285,14 @@ getAllVehiclesCached day filter@(Filter filterName vehicleFilter) =
                 return $ Line "" []
           else do
             TSIO.putStrLn $ "Cache miss: " <> cacheName
-            rawRes <- sequence $
-              P.map
+            rawRes <- sequence
+              $ P.map
                 ( \day -> do
                     getAllVehicles day filter
                 )
-                $ case day of
-                  Just d -> [d]
-                  Nothing -> allDays
+              $ case day of
+                Just d -> [d]
+                Nothing -> allDays
             let res = transformVehicles $ mconcat rawRes
              in do
                   BL.writeFile cachePath $ Aeson.encode $ toCache res

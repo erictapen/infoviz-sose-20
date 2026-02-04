@@ -8,9 +8,9 @@
 module Main where
 
 import Control.Concurrent.ParallelIO.Global
+import Data.Base64.Types (extractBase64)
 import Data.ByteString as BS
 import Data.ByteString.Base64
-import Data.Base64.Types (extractBase64)
 import Data.Maybe
 import Data.Text as TS
 import Data.Time.LocalTime
@@ -47,14 +47,14 @@ xLegend height fx times =
                 Style_ <<- "text-align: center;",
                 Font_size_ <<- "3.5"
               ]
-              $ toElement $
-                formatTime t
+              $ toElement
+              $ formatTime t
           )
             <> line_
               [ X1_ <<- (toText (fx t)),
                 X2_ <<- (toText (fx t)),
-                Y1_ <<- (toText (height -3)),
-                Y2_ <<- (toText (height -1)),
+                Y1_ <<- (toText (height - 3)),
+                Y2_ <<- (toText (height - 1)),
                 Stroke_ <<- "#C0C0C0",
                 Stroke_width_ <<- "0.2"
               ]
@@ -80,7 +80,7 @@ yLegend cursorY width fy stations =
       legendText :: (Station, Bool) -> Element
       legendText (station@(label, _), indented) =
         ( text_
-            [ X_ <<- (toText (- 3 - (if indented then 10 else 40))),
+            [ X_ <<- (toText (-3 - (if indented then 10 else 40))),
               Y_ <<- (toText (cursorY + (fy' station) + 1)),
               Font_family_ <<- "Fira Sans",
               Text_anchor_ <<- "end",
@@ -136,32 +136,32 @@ graphicWithLegendsCached tram outFile color strokeWidth day =
               P.show $
                 let height = 40 + (diagramHeightFactor * trackLength refTrack)
                     width = diagramWidth + 100 + 20 + 20
-                 in svg height width $
-                      g_
+                 in svg height width
+                      $ g_
                         [ Transform_ <<- translate 75 20
                         ]
-                        $ ( image_
-                              [ X_ <<- (toText 0),
-                                Y_ <<- (toText 0),
-                                Width_ <<- (toText diagramWidth),
-                                Height_ <<- (toText $ diagramHeightFactor * trackLength refTrack),
-                                XlinkHref_ <<- ("data:image/jpeg;base64," <> (extractBase64 . encodeBase64) rasterContent)
-                              ]
-                          )
-                          <> ( yLegend
-                                 0
-                                 -- Nothing happens after 2am, so no needs to draw lines
-                                 (placeOnX diagramWidth $ TimeOfDay 2 0 0)
-                                 ( fmap (diagramHeightFactor *)
-                                     . locateCoordOnTrackLength 100 (fromReferenceTrack refTrack)
-                                 )
-                                 stations
-                             )
-                          <> ( xLegend
-                                 0
-                                 (placeOnX diagramWidth)
-                                 [(TimeOfDay h m 0) | h <- [0 .. 23], m <- [0, 10 .. 50]]
-                             )
+                      $ ( image_
+                            [ X_ <<- (toText 0),
+                              Y_ <<- (toText 0),
+                              Width_ <<- (toText diagramWidth),
+                              Height_ <<- (toText $ diagramHeightFactor * trackLength refTrack),
+                              XlinkHref_ <<- ("data:image/jpeg;base64," <> (extractBase64 . encodeBase64) rasterContent)
+                            ]
+                        )
+                        <> ( yLegend
+                               0
+                               -- Nothing happens after 2am, so no needs to draw lines
+                               (placeOnX diagramWidth $ TimeOfDay 2 0 0)
+                               ( fmap (diagramHeightFactor *)
+                                   . locateCoordOnTrackLength 100 (fromReferenceTrack refTrack)
+                               )
+                               stations
+                           )
+                        <> ( xLegend
+                               0
+                               (placeOnX diagramWidth)
+                               [(TimeOfDay h m 0) | h <- [0 .. 23], m <- [0, 10 .. 50]]
+                           )
 
 tramIds :: [Text]
 tramIds =
@@ -237,7 +237,8 @@ plakat = do
                    Width_ <<- (toText diagramWidth),
                    Height_ <<- (toText height),
                    XlinkHref_
-                     <<- ( "poster_diagram_" <> tramId
+                     <<- ( "poster_diagram_"
+                             <> tramId
                              <> "_"
                              <> (TS.show diagramWidth)
                              <> "x"
@@ -249,8 +250,8 @@ plakat = do
           <> (tramIdHeading cursorY tramId)
           <> diagrams gap (cursorY + height + gap) rs xs
    in do
-        parallel_ $
-          P.map
+        parallel_
+          $ P.map
             ( \(tram, rt) ->
                 diagramCached
                   ( Diagram
@@ -271,16 +272,16 @@ plakat = do
                       Nothing
                   )
             )
-            $ P.zip tramIds $
-              P.map fst referenceTracksAndStations
+          $ P.zip tramIds
+          $ P.map fst referenceTracksAndStations
         P.writeFile
           "./cache/plakat.svg"
-          $ P.show $
-            svg 594 841 $
-              g_
-                [ Transform_ <<- translate 135 35
-                ]
-                $ diagrams gapSize 0 heights referenceTracksAndStations
+          $ P.show
+          $ svg 594 841
+          $ g_
+            [ Transform_ <<- translate 135 35
+            ]
+          $ diagrams gapSize 0 heights referenceTracksAndStations
 
 main :: IO ()
 main = do

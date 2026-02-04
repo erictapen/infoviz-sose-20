@@ -1,7 +1,6 @@
 -- SPDX-FileCopyrightText: 2020 Kerstin Humm <mail@erictapen.name>
 --
 -- SPDX-License-Identifier: GPL-3.0-or-later
-
 {-# LANGUAGE OverloadedStrings #-}
 
 import Data.Text
@@ -125,19 +124,19 @@ scale (val, label) =
 formatWeight :: Float -> Text
 formatWeight weight
   | weight < 0.1 =
-    printfText "~%dmg" (round $ weight * 1000 :: Int)
+      printfText "~%dmg" (round $ weight * 1000 :: Int)
   | weight < 1 =
-    printfText "%dmg" (round $ weight * 1000 :: Int)
+      printfText "%dmg" (round $ weight * 1000 :: Int)
   | weight < 10 =
-    printfText "%.2fg" weight
+      printfText "%.2fg" weight
   | weight < 100 =
-    printfText "%.1fg" weight
+      printfText "%.1fg" weight
   | weight < 1000 =
-    printfText "%dg" (round weight :: Int)
+      printfText "%dg" (round weight :: Int)
   | weight >= 1000 =
-    printfText "%.2fkg" (weight / 1000)
+      printfText "%.2fkg" (weight / 1000)
   | otherwise =
-    printfText "%.2fg" weight
+      printfText "%.2fg" weight
   where
     showF f = (pack $ show f)
     printfText fstr f = pack $ printf fstr f
@@ -157,7 +156,7 @@ title :: Element
 title =
   text_
     [ Font_size_ <<- showF (3 * fontSize),
-            Style_ <<- "font-weight: bold;"
+      Style_ <<- "font-weight: bold;"
     ]
     $ toElement ("Weight distribution of things on my desk" :: Text)
 
@@ -172,7 +171,8 @@ diagram =
 
 main :: IO ()
 main = do
-  print $ svg
+  print
+    $ svg
     $ g_
       [ Transform_ <<- translate 50 70
       ]

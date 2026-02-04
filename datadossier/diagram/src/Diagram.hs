@@ -104,15 +104,15 @@ diagram (Diagram _ _ width heightFactor color strokeWidth refTrack _) (Hafas.Lin
       refTrackTree = fromReferenceTrack refTrack
    in svg (heightFactor * trackLength refTrack) width $
         (style_ [] "path { mix-blend-mode: multiply; }")
-          <> ( P.mconcat $
-                 P.map
+          <> ( P.mconcat
+                 $ P.map
                    ( tripToElement
                        color
                        (fromMaybe (width / (60 * 24)) strokeWidth)
                        (placeOnX width . localTimeOfDay)
                        (fmap (heightFactor *) . locateCoordOnTrackLength 10 refTrackTree)
                    )
-                   $ trips
+                 $ trips
              )
 
 -- | Effectful and caching version of diagram.
