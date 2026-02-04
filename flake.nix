@@ -214,6 +214,7 @@
             };
             ormolu.enable = true;
             # hlint.enable = true;
+            reuse.enable = true;
           };
         };
       });

@@ -6,3 +6,4 @@ result*
 *.json
 notes.md
 .pre-commit-config.yaml
+plakat.pdf
