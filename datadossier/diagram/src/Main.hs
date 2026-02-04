@@ -10,6 +10,7 @@ module Main where
 import Control.Concurrent.ParallelIO.Global
 import Data.ByteString as BS
 import Data.ByteString.Base64
+import Data.Base64.Types (extractBase64)
 import Data.Maybe
 import Data.Text as TS
 import Data.Time.LocalTime
@@ -144,7 +145,7 @@ graphicWithLegendsCached tram outFile color strokeWidth day =
                                 Y_ <<- (toText 0),
                                 Width_ <<- (toText diagramWidth),
                                 Height_ <<- (toText $ diagramHeightFactor * trackLength refTrack),
-                                XlinkHref_ <<- ("data:image/jpeg;base64," <> encodeBase64 rasterContent)
+                                XlinkHref_ <<- ("data:image/jpeg;base64," <> (extractBase64 . encodeBase64) rasterContent)
                               ]
                           )
                           <> ( yLegend
@@ -238,9 +239,9 @@ plakat = do
                    XlinkHref_
                      <<- ( "poster_diagram_" <> tramId
                              <> "_"
-                             <> (TS.pack $ show diagramWidth)
+                             <> (TS.show diagramWidth)
                              <> "x"
-                             <> (TS.pack $ show diagramHeight)
+                             <> (TS.show diagramHeight)
                              <> ".svg.png"
                          )
                  ]
@@ -257,9 +258,9 @@ plakat = do
                       ( "./cache/poster_diagram_"
                           <> (TS.unpack tram)
                           <> "_"
-                          <> (show diagramWidth)
+                          <> (P.show diagramWidth)
                           <> "x"
-                          <> (show diagramHeight)
+                          <> (P.show diagramHeight)
                           <> ".svg"
                       )
                       diagramWidth
