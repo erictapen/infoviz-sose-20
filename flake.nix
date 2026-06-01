@@ -163,7 +163,6 @@
 
                 # datadossier/crawler
                 nodejs
-                nodePackages.node2nix
 
                 # datadossier/diagram
                 (pkgs.haskellPackages.ghcWithPackages (
